@@ -1,304 +1,1412 @@
-<!-- ... existing code ... -->
-        <form id="movieForm" class="space-y-4 text-xs">
-          <input type="hidden" id="formMovieId">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Disc Roulette | Physical Media Movie Picker</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
-          <!-- Title -->
-          <div>
-            <div class="flex items-center justify-between mb-1">
-              <label class="block font-semibold uppercase tracking-wider text-slate-400">Movie Title *</label>
-              <button type="button" id="btnToggleTmdbSearch" class="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition">
-                <i data-lucide="search" class="w-3 h-3"></i> Search & Link TMDb
-              </button>
-            </div>
-            <input type="text" id="formTitle" required placeholder="e.g. Alien, Seven Samurai" class="w-full bg-cineDark-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cineGold: {
+              400: '#fbbf24',
+              500: '#f59e0b',
+              600: '#d97706',
+            },
+            cineDark: {
+              950: '#070a12',
+              900: '#0c111e',
+              850: '#111827',
+              800: '#172033',
+              700: '#1e293b',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @keyframes pulse-subtle {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.02); opacity: 0.95; }
+    }
+    .animate-subtle {
+      animation: pulse-subtle 3s ease-in-out infinite;
+    }
+    .reel-blur {
+      filter: blur(2px);
+      transform: scale(0.98);
+      transition: all 0.05s ease-out;
+    }
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0c111e;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+  </style>
+</head>
+<body class="bg-cineDark-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-cineGold-500 selection:text-black">
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Top Navigation Bar -->
+  <header class="border-b border-slate-800/80 bg-cineDark-900/80 backdrop-blur-md sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      
+      <!-- Brand Logo -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cineGold-600 to-amber-300 flex items-center justify-center text-cineDark-950 shadow-lg shadow-amber-500/20">
+          <i data-lucide="disc-3" class="w-6 h-6 animate-spin" style="animation-duration: 8s;"></i>
+        </div>
+        <div>
+          <h1 class="font-black text-lg tracking-tight bg-gradient-to-r from-amber-200 via-cineGold-400 to-amber-500 bg-clip-text text-transparent">
+            DISC ROULETTE
+          </h1>
+          <p class="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Physical Media Selector</p>
+        </div>
+      </div>
+
+      <!-- Action Nav Buttons -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Cloud Sync Button -->
+        <button id="btnOpenCloudModal" onclick="window.openCloudModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cineDark-850 hover:bg-slate-800 border border-slate-700/80 text-xs font-semibold text-slate-200 transition shadow-sm">
+          <i data-lucide="cloud" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <span class="hidden md:inline">Cloud Sync</span>
+          <span id="cloudStatusBadge" class="w-2 h-2 rounded-full bg-slate-500"></span>
+        </button>
+
+        <!-- TMDb Auto Enrich Button -->
+        <button id="btnOpenEnrichModal" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-700/60 text-xs font-semibold text-indigo-200 transition shadow-sm">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i>
+          <span class="hidden sm:inline">Auto-Enrich Data</span>
+        </button>
+
+        <!-- Add Title Button -->
+        <button id="btnAddTitle" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cineDark-850 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition">
+          <i data-lucide="plus" class="w-3.5 h-3.5 text-cineGold-400"></i>
+          <span class="hidden sm:inline">Add Title</span>
+        </button>
+
+        <!-- Pick History Button -->
+        <button id="btnOpenHistory" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cineDark-850 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition relative">
+          <i data-lucide="history" class="w-3.5 h-3.5 text-slate-400"></i>
+          <span class="hidden sm:inline">History</span>
+          <span id="historyCountBadge" class="hidden px-1.5 py-0.2 rounded-full bg-cineGold-500 text-cineDark-950 text-[10px] font-bold">0</span>
+        </button>
+
+        <!-- Titles Loaded Counter Badge -->
+        <div class="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-400 font-mono">
+          <i data-lucide="film" class="w-3.5 h-3.5 text-slate-500"></i>
+          <span id="totalTitleCount">0</span> Titles
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col gap-6 w-full">
+    
+    <!-- Top CSV Import & Collection Bar -->
+    <section class="bg-cineDark-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <div class="w-10 h-10 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-400 shrink-0">
+          <i data-lucide="database" class="w-5 h-5 text-cineGold-400"></i>
+        </div>
+        <div>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300">Your Movie Collection</h2>
+          <p id="collectionSummary" class="text-xs text-slate-400">Using embedded sample list (15 titles)</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 flex-wrap w-full md:w-auto justify-end">
+        <label for="csvFileInput" class="cursor-pointer flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cineGold-500/10 hover:bg-cineGold-500/20 text-cineGold-400 border border-cineGold-500/30 text-xs font-semibold transition">
+          <i data-lucide="file-up" class="w-3.5 h-3.5"></i>
+          <span>Import CSV</span>
+        </label>
+        <input type="file" id="csvFileInput" accept=".csv" class="hidden">
+
+        <button id="btnExportCsv" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cineDark-850 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold transition">
+          <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
+          <span>Export CSV</span>
+        </button>
+
+        <button id="btnClearData" class="hidden items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold transition">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          <span>Clear Data</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- App Layout: Left Filters, Right Movie Card & Rolling Picker -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 items-start">
+      
+      <!-- Filter Controls Panel (4 Columns) -->
+      <aside class="lg:col-span-4 bg-cineDark-900 border border-slate-800/90 rounded-2xl p-5 shadow-xl flex flex-col gap-5 sticky top-24">
+        
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4 text-cineGold-400"></i>
+            <h3 class="font-bold text-sm tracking-wide text-slate-200">Roulette Filters</h3>
           </div>
+          <button id="btnResetFilters" class="text-xs text-slate-400 hover:text-cineGold-400 transition font-medium flex items-center gap-1">
+            <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Reset
+          </button>
+        </div>
 
-          <!-- TMDb Interactive Search & Match Box (Collapsible) -->
-          <div id="tmdbSearchContainer" class="hidden p-3.5 rounded-xl bg-indigo-950/40 border border-indigo-700/40 space-y-3">
-            <div class="flex items-center justify-between">
-              <span class="font-bold text-indigo-300 flex items-center gap-1.5">
-                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Find & Link Exact TMDb Match
+        <!-- Filter Count Pill -->
+        <div class="bg-cineDark-950 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+          <span class="text-xs text-slate-400 font-medium">Pool Available:</span>
+          <span id="filteredCountBadge" class="text-sm font-bold font-mono text-cineGold-400">15 / 15</span>
+        </div>
+
+        <!-- Filter: Decade -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Decade</label>
+          <select id="filterDecade" class="w-full bg-cineDark-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cineGold-500 transition">
+            <option value="ALL">All Decades</option>
+          </select>
+        </div>
+
+        <!-- Filter: Studio / Distributor -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Movie Studio</label>
+          <select id="filterStudio" class="w-full bg-cineDark-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cineGold-500 transition">
+            <option value="ALL">All Studios</option>
+          </select>
+        </div>
+
+        <!-- Filter: Genre -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Genre</label>
+          <select id="filterGenre" class="w-full bg-cineDark-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cineGold-500 transition">
+            <option value="ALL">All Genres</option>
+          </select>
+        </div>
+
+        <!-- Filter: Country -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Country</label>
+          <select id="filterCountry" class="w-full bg-cineDark-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cineGold-500 transition">
+            <option value="ALL">All Countries</option>
+          </select>
+        </div>
+
+        <!-- Filter: Watched Status -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Watched Status</label>
+          <div class="grid grid-cols-3 gap-1 bg-cineDark-950 p-1 rounded-xl border border-slate-800 text-xs">
+            <button type="button" data-watched="ALL" class="filter-watched-btn py-1.5 rounded-lg font-semibold transition bg-cineGold-500 text-cineDark-950">All</button>
+            <button type="button" data-watched="UNWATCHED" class="filter-watched-btn py-1.5 rounded-lg font-semibold transition text-slate-400 hover:text-white">Unwatched</button>
+            <button type="button" data-watched="WATCHED" class="filter-watched-btn py-1.5 rounded-lg font-semibold transition text-slate-400 hover:text-white">Watched</button>
+          </div>
+        </div>
+
+        <!-- Toggle Catalog Drawer Button -->
+        <button id="btnToggleBrowse" class="mt-2 w-full py-2.5 rounded-xl bg-cineDark-850 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-300 transition flex items-center justify-center gap-2">
+          <i data-lucide="table" class="w-3.5 h-3.5 text-slate-400"></i>
+          <span>Browse Filtered List</span>
+        </button>
+
+      </aside>
+
+      <!-- Center & Right: Slot / Movie Display Card (8 Columns) -->
+      <section class="lg:col-span-8 flex flex-col gap-6">
+        
+        <!-- Main Roulette Card Display -->
+        <div id="movieCardContainer" class="bg-gradient-to-b from-cineDark-900 to-cineDark-950 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col min-h-[460px] justify-between">
+          
+          <!-- Decorative Background Ambient Glow -->
+          <div class="absolute -top-24 -right-24 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="absolute -bottom-24 -left-24 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+          <!-- Top Card Meta Row -->
+          <div class="flex items-center justify-between gap-3 z-10">
+            <div class="flex items-center gap-2">
+              <span id="cardYearBadge" class="px-2.5 py-1 rounded-md bg-cineGold-500/20 border border-cineGold-500/40 text-cineGold-400 text-xs font-bold font-mono">
+                1979
               </span>
-              <button type="button" id="btnCloseTmdbSearch" class="text-slate-400 hover:text-white text-xs">Cancel</button>
+              <span id="cardWatchedBadge" class="hidden px-2.5 py-1 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-semibold">
+                Watched
+              </span>
             </div>
-            <div class="flex gap-2">
-              <input type="text" id="tmdbCustomSearchQuery" placeholder="Search alternate title, original title, or year..." class="flex-1 bg-cineDark-950 border border-indigo-500/50 rounded-lg px-3 py-1.5 text-slate-200 text-xs focus:outline-none">
-              <button type="button" id="btnExecuteTmdbSearch" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-semibold text-xs transition flex items-center gap-1">
-                <i data-lucide="search" class="w-3.5 h-3.5"></i> Search
+
+            <!-- Card Actions (Edit, Mark Watched) -->
+            <div id="cardActions" class="flex items-center gap-2">
+              <button id="btnToggleCardWatched" title="Toggle Watched" class="p-2 rounded-xl bg-cineDark-850 hover:bg-slate-800 border border-slate-700 text-slate-300 transition">
+                <i data-lucide="check-circle" class="w-4 h-4"></i>
+              </button>
+              <button id="btnEditCardMovie" title="Edit Movie Details" class="p-2 rounded-xl bg-cineDark-850 hover:bg-slate-800 border border-slate-700 text-slate-300 transition">
+                <i data-lucide="pencil" class="w-4 h-4"></i>
               </button>
             </div>
-            <!-- Search Results Candidate List -->
-            <div id="tmdbCandidateList" class="space-y-2 max-h-56 overflow-y-auto pr-1">
-              <p class="text-[11px] text-slate-400 text-center py-2">Type a title or query above to browse candidate films.</p>
+          </div>
+
+          <!-- Middle Card Content: Poster + Title + Details -->
+          <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 my-6 z-10">
+            
+            <!-- Poster Display -->
+            <div class="w-36 sm:w-44 h-52 sm:h-64 rounded-2xl bg-cineDark-850 border border-slate-700/80 shadow-2xl overflow-hidden shrink-0 flex items-center justify-center relative group">
+              <img id="cardPoster" src="" alt="Poster" class="w-full h-full object-cover transition duration-300 group-hover:scale-105 hidden">
+              <div id="cardPosterFallback" class="flex flex-col items-center justify-center p-4 text-center text-slate-600 gap-2">
+                <i data-lucide="film" class="w-10 h-10 stroke-[1.5]"></i>
+                <span class="text-[10px] font-semibold uppercase tracking-wider">No Artwork</span>
+              </div>
+            </div>
+
+            <!-- Text Details -->
+            <div class="flex-1 text-center sm:text-left flex flex-col justify-center min-w-0">
+              <p id="cardStudio" class="text-xs uppercase tracking-widest font-bold text-cineGold-500 mb-1 truncate">
+                20TH CENTURY FOX
+              </p>
+              <h2 id="cardTitle" class="text-2xl sm:text-4xl font-black tracking-tight text-white line-clamp-2 leading-tight">
+                Alien
+              </h2>
+              
+              <div class="flex flex-wrap items-center justify-center sm:justify-start gap-y-1 gap-x-3 text-xs text-slate-400 mt-2 font-medium">
+                <span id="cardDirector" class="text-slate-300 font-semibold">Ridley Scott</span>
+                <span>&bull;</span>
+                <span id="cardCountry">United States</span>
+              </div>
+
+              <!-- Genres Badges -->
+              <div id="cardGenres" class="flex flex-wrap gap-1.5 mt-3 justify-center sm:justify-start">
+                <span class="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[11px] text-slate-300">Sci-Fi</span>
+                <span class="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[11px] text-slate-300">Horror</span>
+              </div>
+
+              <!-- Overview snippet -->
+              <p id="cardOverview" class="text-xs text-slate-400 line-clamp-3 mt-4 leading-relaxed font-normal">
+                After a space merchant vessel perceives an unknown transmission as a distress call, its landing on the source moon finds one of the crew attacked by a mysterious life-form.
+              </p>
             </div>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <!-- Director -->
-            <div>
-              <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Director(s) *</label>
-              <input type="text" id="formDirector" placeholder="e.g. Ridley Scott, Joel Coen, Ethan Coen" class="w-full bg-cineDark-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
+          <!-- Bottom Card Controls & Roulette Trigger Button -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-800/80 z-10">
+            <div class="text-xs text-slate-400 flex items-center gap-2">
+              <i data-lucide="dices" class="w-4 h-4 text-cineGold-400"></i>
+              <span>Ready for tonight's film?</span>
             </div>
 
-            <!-- Movie Studio -->
-            <div>
-              <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Movie Studio / Production Co.</label>
-              <input type="text" id="formStudio" placeholder="e.g. 20th Century Fox, Toho, Universal" class="w-full bg-cineDark-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
-            </div>
+            <!-- Big Golden Spin Button -->
+            <button id="btnSpinRoulette" class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-amber-400 via-cineGold-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-cineDark-950 font-black text-sm uppercase tracking-wider shadow-lg shadow-amber-500/25 transition transform active:scale-95 flex items-center justify-center gap-2">
+              <i data-lucide="play" class="w-5 h-5 fill-current"></i>
+              <span>Pick A Movie</span>
+            </button>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <!-- Year -->
-            <div>
-              <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Production / Release Year</label>
-              <input type="number" id="formYear" placeholder="e.g. 1979" min="1890" max="2099" class="w-full bg-cineDark-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
-            </div>
+        </div>
 
-            <!-- Genre -->
-            <div>
-              <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Genre(s)</label>
-              <input type="text" id="formGenre" placeholder="e.g. Horror, Sci-Fi, Mystery" class="w-full bg-cineDark-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
-            </div>
-          </div>
+        <!-- Quick Ticker Ticker Bar during Roll -->
+        <div id="rollerTicker" class="hidden bg-cineDark-900 border border-cineGold-500/50 rounded-2xl p-3 text-center text-cineGold-400 font-mono text-sm font-bold tracking-wide animate-pulse">
+          ROLLING THROUGH THE SHELVES...
+        </div>
 
-          <!-- Production Country -->
+      </section>
+
+    </div>
+
+    <!-- Filtered Catalog Drawer / Table (Collapsible) -->
+    <section id="browseCatalogSection" class="hidden bg-cineDark-900 border border-slate-800 rounded-2xl p-6 shadow-xl mt-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+        <div>
+          <h3 class="font-bold text-base text-slate-100 flex items-center gap-2">
+            <i data-lucide="list" class="w-4 h-4 text-cineGold-400"></i> Filtered Collection Catalog
+          </h3>
+          <p class="text-xs text-slate-400">Browse and inspect movies currently matching your filters.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <input type="text" id="catalogSearchInput" placeholder="Quick search title/director..." class="bg-cineDark-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cineGold-500">
+          <button id="btnCloseBrowse" class="text-xs text-slate-400 hover:text-white px-2 py-1">Close</button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto max-h-96">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead class="sticky top-0 bg-cineDark-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+            <tr>
+              <th class="py-2.5 px-3">Title</th>
+              <th class="py-2.5 px-3">Year</th>
+              <th class="py-2.5 px-3">Director</th>
+              <th class="py-2.5 px-3">Studio</th>
+              <th class="py-2.5 px-3">Country</th>
+              <th class="py-2.5 px-3 text-center">Status</th>
+              <th class="py-2.5 px-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="catalogTableBody" class="divide-y divide-slate-800/60 font-medium">
+            <!-- Dynamic Rows -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- History Drawer Modal -->
+  <div id="historyDrawer" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden opacity-0 transition-opacity flex justify-end">
+    <div class="w-full max-w-md bg-cineDark-900 h-full p-6 flex flex-col border-l border-slate-800 shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <i data-lucide="history" class="w-5 h-5 text-cineGold-400"></i>
+          <h3 class="font-bold text-base text-slate-200">Roll History</h3>
+        </div>
+        <button id="btnCloseHistory" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div id="historyListContainer" class="flex-1 overflow-y-auto py-4 space-y-3">
+        <!-- Rendered history cards -->
+      </div>
+
+      <div class="pt-4 border-t border-slate-800 flex justify-between">
+        <button id="btnClearHistory" class="text-xs text-rose-400 hover:text-rose-300 font-semibold">Clear History</button>
+        <span id="historyTotalText" class="text-xs text-slate-500 font-mono">0 picks recorded</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add / Edit Movie Modal -->
+  <div id="movieModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-cineDark-900 border border-slate-800 rounded-3xl p-6 shadow-2xl relative">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+        <h3 id="movieModalTitle" class="font-bold text-base text-slate-100">Edit Movie Details</h3>
+        <button id="btnCloseMovieModal" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="movieForm" class="space-y-4 text-xs">
+        <input type="hidden" id="formMovieId">
+
+        <!-- Title -->
+        <div>
+          <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Movie Title *</label>
+          <input type="text" id="formTitle" required placeholder="e.g. Alien, Seven Samurai" class="w-full bg-cineDark-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Director -->
           <div>
-            <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Production Country / Countries</label>
-            <input type="text" id="formCountry" placeholder="e.g. United States, Japan, France" class="w-full bg-cineDark-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
+            <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Director(s) *</label>
+            <input type="text" id="formDirector" placeholder="e.g. Ridley Scott" class="w-full bg-cineDark-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
           </div>
 
-          <!-- Poster URL & Preview -->
+          <!-- Studio -->
           <div>
-            <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Poster Image URL</label>
-            <div class="flex gap-2">
-              <input type="url" id="formPoster" placeholder="https://image.tmdb.org/t/p/w500/... or custom image URL" class="flex-1 bg-cineDark-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
-              <button type="button" id="btnClearFormPoster" class="px-3 py-1.5 rounded-xl bg-cineDark-850 hover:bg-slate-800 text-slate-400 hover:text-rose-400 border border-slate-700 text-xs">Clear</button>
-            </div>
+            <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Movie Studio</label>
+            <input type="text" id="formStudio" placeholder="e.g. 20th Century Fox, Criterion" class="w-full bg-cineDark-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Year -->
+          <div>
+            <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Release Year</label>
+            <input type="number" id="formYear" placeholder="e.g. 1979" min="1890" max="2099" class="w-full bg-cineDark-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
           </div>
 
-          <!-- Watched Toggle -->
-<!-- ... existing code ... -->
+          <!-- Genre -->
+          <div>
+            <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Genre(s)</label>
+            <input type="text" id="formGenre" placeholder="e.g. Horror, Sci-Fi" class="w-full bg-cineDark-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
+          </div>
+        </div>
+
+        <!-- Country -->
+        <div>
+          <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Production Country</label>
+          <input type="text" id="formCountry" placeholder="e.g. United States, Japan" class="w-full bg-cineDark-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
+        </div>
+
+        <!-- Poster URL -->
+        <div>
+          <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Poster Image URL</label>
+          <input type="url" id="formPoster" placeholder="https://image.tmdb.org/... or image URL" class="w-full bg-cineDark-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
+        </div>
+
+        <!-- Watched Checkbox -->
+        <div class="flex items-center gap-2 pt-1">
+          <input type="checkbox" id="formWatched" class="w-4 h-4 rounded text-cineGold-500 focus:ring-cineGold-400 bg-cineDark-950 border-slate-700">
+          <label for="formWatched" class="font-medium text-slate-300">Marked as Watched</label>
+        </div>
+
+        <div class="flex items-center justify-between pt-4 border-t border-slate-800">
+          <button type="button" id="btnDeleteMovie" class="text-rose-400 hover:text-rose-300 font-semibold hidden">Delete Title</button>
+          <div class="flex items-center gap-2 ml-auto">
+            <button type="button" id="btnCancelMovieModal" class="px-4 py-2 rounded-xl bg-cineDark-850 hover:bg-slate-800 text-slate-300 font-semibold transition">Cancel</button>
+            <button type="submit" class="px-5 py-2 rounded-xl bg-cineGold-500 hover:bg-cineGold-400 text-cineDark-950 font-bold transition">Save Title</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TMDb Auto-Enrich Modal -->
+  <div id="enrichModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-cineDark-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <i data-lucide="sparkles" class="w-5 h-5 text-indigo-400"></i>
+          <h3 class="font-bold text-base text-slate-100">Auto-Enrich Collection Metadata</h3>
+        </div>
+        <button id="btnCloseEnrichModal" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-300 leading-relaxed">
+        Automatically fetch genuine production years, official movie studios, directors, genres, and high-res posters from The Movie Database (TMDb).
+      </p>
+
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+          TMDb API Key (v3 auth or Read Access Token)
+        </label>
+        <input type="text" id="tmdbApiKeyInput" placeholder="Paste your TMDb API key or token..." class="w-full bg-cineDark-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
+        <p class="text-[11px] text-slate-500 mt-1">Free at <a href="https://www.themoviedb.org/settings/api" target="_blank" class="text-indigo-400 underline">themoviedb.org/settings/api</a>. Saved locally in your browser.</p>
+      </div>
+
+      <div class="bg-cineDark-950 border border-slate-800 rounded-xl p-3 space-y-2">
+        <div class="flex justify-between text-xs">
+          <span class="text-slate-400">Current Collection:</span>
+          <span id="enrichCollectionStatus" class="font-mono text-slate-200">0 titles</span>
+        </div>
+        <div class="flex justify-between text-xs">
+          <span class="text-slate-400">Missing Posters/Metadata:</span>
+          <span id="enrichMissingCount" class="font-mono text-cineGold-400">0 titles</span>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div id="enrichProgressContainer" class="hidden space-y-1 pt-2">
+          <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+            <div id="enrichProgressBar" class="bg-indigo-500 h-2 rounded-full transition-all duration-200" style="width: 0%"></div>
+          </div>
+          <p id="enrichProgressText" class="text-[10px] text-slate-400 text-right">0 / 0 titles enriched</p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+        <button id="btnCancelEnrich" class="px-4 py-2 rounded-xl bg-cineDark-850 hover:bg-slate-800 text-slate-300 text-xs font-semibold transition">Close</button>
+        <button id="btnStartEnrich" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center gap-1.5">
+          <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+          <span>Enrich Missing Movies</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cloud Sync Modal (Supabase) -->
+  <div id="cloudModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-cineDark-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <i data-lucide="cloud" class="w-5 h-5 text-cyan-400"></i>
+          <h3 class="font-bold text-base text-slate-100">Cloud Sync (Supabase)</h3>
+        </div>
+        <button id="btnCloseCloudModal" onclick="window.closeCloudModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-300 leading-relaxed">
+        Keep your physical movie collection and "Watched" status in real-time sync across your phone, tablet, and PC with a free Supabase database.
+      </p>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+            Supabase Project URL
+          </label>
+          <input type="url" id="cloudSupabaseUrl" placeholder="https://xyzcompany.supabase.co" class="w-full bg-cineDark-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+            Supabase Anon Key (Public)
+          </label>
+          <input type="password" id="cloudSupabaseKey" placeholder="eyJhbGciOi..." class="w-full bg-cineDark-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+            Table Name
+          </label>
+          <input type="text" id="cloudSupabaseTable" value="movies" class="w-full bg-cineDark-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono">
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="grid grid-cols-2 gap-2 pt-2">
+        <button type="button" id="btnPushToCloud" class="py-2.5 px-3 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 text-cyan-300 text-xs font-bold transition flex items-center justify-center gap-1.5">
+          <i data-lucide="upload-cloud" class="w-4 h-4"></i> Push Local to Cloud
+        </button>
+        <button type="button" id="btnPullFromCloud" class="py-2.5 px-3 rounded-xl bg-cineDark-850 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold transition flex items-center justify-center gap-1.5">
+          <i data-lucide="download-cloud" class="w-4 h-4"></i> Pull from Cloud
+        </button>
+      </div>
+
+      <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+        <button type="button" id="btnDisconnectCloud" class="text-rose-400 hover:text-rose-300 text-xs font-semibold">Disconnect</button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="window.closeCloudModal()" class="px-4 py-2 rounded-xl bg-cineDark-850 hover:bg-slate-800 text-slate-300 text-xs font-semibold transition">Cancel</button>
+          <button type="button" id="btnSaveCloudConfig" class="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-cineDark-950 text-xs font-bold transition">Save & Connect</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio Tone Generators (No external audio files) -->
+  <script>
+    const AudioEngine = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+      },
+      playTick() {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(320 + Math.random() * 80, this.ctx.currentTime);
+          gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.04);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.04);
+        } catch (e) {}
+      },
+      playWinner() {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const now = this.ctx.currentTime;
+          const notes = [261.63, 329.63, 392.00, 523.25]; // C4, E4, G4, C5
+          notes.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.09);
+            gain.gain.setValueAtTime(0.08, now + idx * 0.09);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.35);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + idx * 0.09);
+            osc.stop(now + idx * 0.09 + 0.35);
+          });
+        } catch (e) {}
+      }
+    };
+  </script>
+
+  <!-- App Core Logic -->
+  <script>
+    /* =====================================================================
+       DEFAULT SAMPLE COLLECTION
+       ===================================================================== */
+    const SAMPLE_MOVIES = [
+      { id: 'm1', title: 'Alien', director: 'Ridley Scott', studio: '20th Century Fox', year: 1979, genres: 'Horror, Sci-Fi', country: 'United States', watched: true, poster: 'https://image.tmdb.org/t/p/w500/vfrQk5IPloGg1v9Rzbh2Eg3VGyM.jpg', overview: 'After a space merchant vessel perceives an unknown transmission as a distress call, its landing on the source moon finds one of the crew attacked by a mysterious life-form.' },
+      { id: 'm2', title: 'Seven Samurai', director: 'Akira Kurosawa', studio: 'Toho', year: 1954, genres: 'Action, Drama', country: 'Japan', watched: false, poster: 'https://image.tmdb.org/t/p/w500/8OKmBV5BUFzmozIC3pPWKzhNTY9.jpg', overview: 'A samurai answers a village\'s request for protection after he falls on hard times. The town needs protection from bandits, so the samurai gathers six others to help him teach the people how to defend themselves.' },
+      { id: 'm3', title: 'The Thing', director: 'John Carpenter', studio: 'Universal Pictures', year: 1982, genres: 'Horror, Mystery, Sci-Fi', country: 'United States', watched: true, poster: 'https://image.tmdb.org/t/p/w500/tzGY49kseSE9QAKk47uuDGwnSCu.jpg', overview: 'A research team in Antarctica is hunted by a shape-shifting alien that assumes the appearance of its victims.' },
+      { id: 'm4', title: 'Blade Runner', director: 'Ridley Scott', studio: 'Warner Bros.', year: 1982, genres: 'Sci-Fi, Thriller', country: 'United States', watched: false, poster: 'https://image.tmdb.org/t/p/w500/63N9uy8nd9j7Eog2axPQ8lbr3Wj.jpg', overview: 'A blade runner must pursue and terminate four replicants who stole a ship in space and have returned to Earth to find their creator.' },
+      { id: 'm5', title: 'Rear Window', director: 'Alfred Hitchcock', studio: 'Paramount Pictures', year: 1954, genres: 'Mystery, Thriller', country: 'United States', watched: true, poster: 'https://image.tmdb.org/t/p/w500/ILVF059wrMddIk68Ut1B0mehkN.jpg', overview: 'A wheelchair-bound photographer spies on his neighbors from his apartment window and becomes convinced one of them has committed murder.' },
+      { id: 'm6', title: 'Fargo', director: 'Joel Coen, Ethan Coen', studio: 'Gramercy Pictures', year: 1996, genres: 'Crime, Drama, Thriller', country: 'United States', watched: false, poster: 'https://image.tmdb.org/t/p/w500/rt7cpEr1u9yoLae9nBgnk2dnBTZ.jpg', overview: 'Jerry Lundegaard\'s inept crime falls apart due to his and his henchmen\'s bungling and the persistent police work of the quite pregnant Marge Gunderson.' },
+      { id: 'm7', title: 'Ran', director: 'Akira Kurosawa', studio: 'Toho / Herald Ace', year: 1985, genres: 'Action, Drama, War', country: 'Japan', watched: false, poster: 'https://image.tmdb.org/t/p/w500/8e20eK792xV2dI4w094L7yA27t0.jpg', overview: 'In Medieval Japan, an elderly warlord retires, handing over his empire to his three sons, resulting in brutal war.' },
+      { id: 'm8', title: 'The Big Lebowski', director: 'Joel Coen, Ethan Coen', studio: 'PolyGram Filmed Entertainment', year: 1998, genres: 'Comedy, Crime', country: 'United States', watched: true, poster: 'https://image.tmdb.org/t/p/w500/9ba7N2k23a3F7A6vU3W34y5s.jpg', overview: 'Jeff "The Dude" Lebowski, mistaken for a millionaire of the same name, seeks restitution for his ruined rug and enlists his bowling buddies to help get it.' },
+      { id: 'm9', title: 'In the Mood for Love', director: 'Wong Kar-wai', studio: 'Block 2 Pictures', year: 2000, genres: 'Drama, Romance', country: 'Hong Kong', watched: false, poster: 'https://image.tmdb.org/t/p/w500/iYypPT4jh2Drz5t9no8eTz4u9F6.jpg', overview: 'Two neighbors form a strong bond after both suspect extramarital activities of their spouses.' },
+      { id: 'm10', title: 'Heat', director: 'Michael Mann', studio: 'Warner Bros.', year: 1995, genres: 'Action, Crime, Drama', country: 'United States', watched: true, poster: 'https://image.tmdb.org/t/p/w500/rrBuGu0Pjq7Y29x9oo0e998.jpg', overview: 'A group of high-end professional thieves start to feel the heat from the LAPD when a robbery goes wrong.' },
+      { id: 'm11', title: 'Parasite', director: 'Bong Joon-ho', studio: 'CJ Entertainment', year: 2019, genres: 'Drama, Thriller', country: 'South Korea', watched: true, poster: 'https://image.tmdb.org/t/p/w500/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg', overview: 'Greed and class discrimination threaten the newly formed symbiotic relationship between the wealthy Park family and the destitute Kim clan.' },
+      { id: 'm12', title: 'Mulholland Drive', director: 'David Lynch', studio: 'Les Films Alain Sarde', year: 2001, genres: 'Drama, Mystery, Thriller', country: 'France / USA', watched: false, poster: 'https://image.tmdb.org/t/p/w500/tVxGtKspWuv79Bm9i.jpg', overview: 'After a car wreck on the winding Mulholland Drive renders a woman amnesiac, she and a perky Hollywood-hopeful search for clues across Los Angeles.' },
+      { id: 'm13', title: 'Goodfellas', director: 'Martin Scorsese', studio: 'Warner Bros.', year: 1990, genres: 'Biography, Crime, Drama', country: 'United States', watched: true, poster: 'https://image.tmdb.org/t/p/w500/aKuFiU82s5ISJpGZp7Y.jpg', overview: 'The story of Henry Hill and his life in the mob, covering his relationship with his wife Karen Hill and his mob partners.' },
+      { id: 'm14', title: 'Pan\'s Labyrinth', director: 'Guillermo del Toro', studio: 'Tequila Gang', year: 2006, genres: 'Drama, Fantasy, War', country: 'Spain / Mexico', watched: false, poster: 'https://image.tmdb.org/t/p/w500/79K4aJ2a.jpg', overview: 'In the Falangist Spain of 1944, the young stepdaughter of a sadistic army officer escapes into an eerie but captivating fantasy world.' },
+      { id: 'm15', title: 'Stalker', director: 'Andrei Tarkovsky', studio: 'Mosfilm', year: 1979, genres: 'Drama, Sci-Fi', country: 'Soviet Union', watched: false, poster: 'https://image.tmdb.org/t/p/w500/lUE0.jpg', overview: 'A guide leads two men through an area known as the Zone to find a room that grants a person\'s deepest desires.' }
+    ];
+
+    /* =====================================================================
+       STATE MANAGEMENT
+       ===================================================================== */
+    let collectionData = [];
+    let filteredMovies = [];
+    let currentSelectedMovie = null;
+    let pickHistory = [];
+    let isRolling = false;
+    let activeFilters = {
+      decade: 'ALL',
+      studio: 'ALL',
+      genre: 'ALL',
+      country: 'ALL',
+      watched: 'ALL'
+    };
+
+    // Cache DOM Elements
+    let elements = {};
+
+    function initDOMElements() {
+      elements = {
+        totalTitleCount: document.getElementById('totalTitleCount'),
+        collectionSummary: document.getElementById('collectionSummary'),
+        filteredCountBadge: document.getElementById('filteredCountBadge'),
+        filterDecade: document.getElementById('filterDecade'),
+        filterStudio: document.getElementById('filterStudio'),
+        filterGenre: document.getElementById('filterGenre'),
+        filterCountry: document.getElementById('filterCountry'),
+        watchedButtons: document.querySelectorAll('.filter-watched-btn'),
+        btnResetFilters: document.getElementById('btnResetFilters'),
+        btnSpinRoulette: document.getElementById('btnSpinRoulette'),
+        rollerTicker: document.getElementById('rollerTicker'),
+        movieCardContainer: document.getElementById('movieCardContainer'),
+        cardTitle: document.getElementById('cardTitle'),
+        cardDirector: document.getElementById('cardDirector'),
+        cardStudio: document.getElementById('cardStudio'),
+        cardYearBadge: document.getElementById('cardYearBadge'),
+        cardCountry: document.getElementById('cardCountry'),
+        cardGenres: document.getElementById('cardGenres'),
+        cardOverview: document.getElementById('cardOverview'),
+        cardPoster: document.getElementById('cardPoster'),
+        cardPosterFallback: document.getElementById('cardPosterFallback'),
+        cardWatchedBadge: document.getElementById('cardWatchedBadge'),
+        btnToggleCardWatched: document.getElementById('btnToggleCardWatched'),
+        btnEditCardMovie: document.getElementById('btnEditCardMovie'),
+        csvFileInput: document.getElementById('csvFileInput'),
+        btnExportCsv: document.getElementById('btnExportCsv'),
+        btnClearData: document.getElementById('btnClearData'),
+        btnToggleBrowse: document.getElementById('btnToggleBrowse'),
+        browseCatalogSection: document.getElementById('browseCatalogSection'),
+        catalogTableBody: document.getElementById('catalogTableBody'),
+        catalogSearchInput: document.getElementById('catalogSearchInput'),
+        btnCloseBrowse: document.getElementById('btnCloseBrowse'),
+        btnOpenHistory: document.getElementById('btnOpenHistory'),
+        historyDrawer: document.getElementById('historyDrawer'),
+        btnCloseHistory: document.getElementById('btnCloseHistory'),
+        historyListContainer: document.getElementById('historyListContainer'),
+        btnClearHistory: document.getElementById('btnClearHistory'),
+        historyCountBadge: document.getElementById('historyCountBadge'),
+        historyTotalText: document.getElementById('historyTotalText'),
+        btnAddTitle: document.getElementById('btnAddTitle'),
+        movieModal: document.getElementById('movieModal'),
+        movieModalTitle: document.getElementById('movieModalTitle'),
+        movieForm: document.getElementById('movieForm'),
+        btnCloseMovieModal: document.getElementById('btnCloseMovieModal'),
+        btnCancelMovieModal: document.getElementById('btnCancelMovieModal'),
+        formMovieId: document.getElementById('formMovieId'),
+        formTitle: document.getElementById('formTitle'),
+        formDirector: document.getElementById('formDirector'),
         formStudio: document.getElementById('formStudio'),
         formYear: document.getElementById('formYear'),
         formGenre: document.getElementById('formGenre'),
         formCountry: document.getElementById('formCountry'),
         formPoster: document.getElementById('formPoster'),
-        btnClearFormPoster: document.getElementById('btnClearFormPoster'),
         formWatched: document.getElementById('formWatched'),
-        btnToggleTmdbSearch: document.getElementById('btnToggleTmdbSearch'),
-        tmdbSearchContainer: document.getElementById('tmdbSearchContainer'),
-        btnCloseTmdbSearch: document.getElementById('btnCloseTmdbSearch'),
-        tmdbCustomSearchQuery: document.getElementById('tmdbCustomSearchQuery'),
-        btnExecuteTmdbSearch: document.getElementById('btnExecuteTmdbSearch'),
-        tmdbCandidateList: document.getElementById('tmdbCandidateList'),
         btnDeleteMovie: document.getElementById('btnDeleteMovie'),
-<!-- ... existing code ... -->
-    /* =====================================================================
-       TMDB METADATA AUTO-ENRICHMENT & INTERACTIVE LINKING SERVICE
-       ===================================================================== */
-    function getTmdbApiKey() {
-      return (elements.tmdbApiKeyInput ? elements.tmdbApiKeyInput.value.trim() : '') || (localStorage.getItem('cinepick_tmdb_key') || '');
-    }
-
-    // Search TMDb for multiple movie candidates
-    async function searchTmdbMovies(query) {
-      const apiKey = getTmdbApiKey();
-      if (!apiKey) {
-        throw new Error("No TMDb API key provided. Please enter a key in Auto-Enrich Data first.");
-      }
-      localStorage.setItem('cinepick_tmdb_key', apiKey);
-
-      let clean = query.replace(/\s*\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '');
-      clean = clean.replace(/\b(4k|uhd|blu-ray|dvd|steelbook|criterion|kino)\b/gi, '').trim();
-
-      const authHeaders = apiKey.length > 50 ? { 'Authorization': `Bearer ${apiKey}` } : {};
-      const queryParam = apiKey.length > 50 ? '' : `&api_key=${apiKey}`;
-
-      const url = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(clean || query)}${queryParam}&include_adult=false`;
-      const res = await fetch(url, { headers: authHeaders });
-      if (!res.ok) throw new Error(`TMDb search failed (Status ${res.status})`);
-      const data = await res.json();
-      return data.results || [];
-    }
-
-    // Fetch full metadata for a specific chosen TMDb movie ID
-    async function fetchDetailsForTmdbId(tmdbId) {
-      const apiKey = getTmdbApiKey();
-      if (!apiKey) throw new Error("No TMDb API key available.");
-
-      const authHeaders = apiKey.length > 50 ? { 'Authorization': `Bearer ${apiKey}` } : {};
-      const queryParam = apiKey.length > 50 ? '' : `&api_key=${apiKey}`;
-
-      const detailUrl = `https://api.themoviedb.org/3/movie/${tmdbId}?append_to_response=credits${queryParam}`;
-      const res = await fetch(detailUrl, { headers: authHeaders });
-      if (!res.ok) throw new Error("Failed to fetch movie details from TMDb.");
-      const details = await res.json();
-
-      let directors = 'Unknown Director';
-      if (details.credits && details.credits.crew) {
-        const directList = details.credits.crew
-          .filter(c => c.job === 'Director')
-          .map(c => c.name);
-        if (directList.length > 0) directors = directList.join(', ');
-      }
-
-      let studios = 'Independent / Unknown';
-      if (details.production_companies && details.production_companies.length > 0) {
-        studios = details.production_companies.slice(0, 2).map(c => c.name).join(', ');
-      }
-
-      let countries = 'Unknown Country';
-      if (details.production_countries && details.production_countries.length > 0) {
-        countries = details.production_countries.map(c => c.name).join(', ');
-      }
-
-      let prodYear = null;
-      if (details.release_date) {
-        prodYear = parseInt(details.release_date.split('-')[0], 10);
-      }
-
-      const genres = details.genres && details.genres.length > 0 
-        ? details.genres.map(g => g.name).join(', ') 
-        : '';
-
-      const poster = details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : '';
-      const overview = details.overview || '';
-
-      return {
-        title: details.title,
-        director: directors,
-        studio: studios,
-        country: countries,
-        year: prodYear,
-        genres,
-        poster,
-        overview
+        btnOpenEnrichModal: document.getElementById('btnOpenEnrichModal'),
+        enrichModal: document.getElementById('enrichModal'),
+        btnCloseEnrichModal: document.getElementById('btnCloseEnrichModal'),
+        btnCancelEnrich: document.getElementById('btnCancelEnrich'),
+        btnStartEnrich: document.getElementById('btnStartEnrich'),
+        tmdbApiKeyInput: document.getElementById('tmdbApiKeyInput'),
+        enrichCollectionStatus: document.getElementById('enrichCollectionStatus'),
+        enrichMissingCount: document.getElementById('enrichMissingCount'),
+        enrichProgressContainer: document.getElementById('enrichProgressContainer'),
+        enrichProgressBar: document.getElementById('enrichProgressBar'),
+        enrichProgressText: document.getElementById('enrichProgressText'),
+        cloudModal: document.getElementById('cloudModal'),
+        cloudStatusBadge: document.getElementById('cloudStatusBadge'),
+        cloudSupabaseUrl: document.getElementById('cloudSupabaseUrl'),
+        cloudSupabaseKey: document.getElementById('cloudSupabaseKey'),
+        cloudSupabaseTable: document.getElementById('cloudSupabaseTable'),
+        btnSaveCloudConfig: document.getElementById('btnSaveCloudConfig'),
+        btnDisconnectCloud: document.getElementById('btnDisconnectCloud'),
+        btnPushToCloud: document.getElementById('btnPushToCloud'),
+        btnPullFromCloud: document.getElementById('btnPullFromCloud'),
       };
     }
 
-    async function handleExecuteTmdbSearch() {
-      const query = (elements.tmdbCustomSearchQuery.value || elements.formTitle.value).trim();
-      if (!query) {
-        showToast("Enter a title to search!");
+    /* =====================================================================
+       TOAST NOTIFICATIONS
+       ===================================================================== */
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+
+      const toast = document.createElement('div');
+      toast.className = 'px-4 py-3 rounded-xl bg-cineDark-900 border border-slate-700 text-slate-100 text-xs shadow-2xl flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0 pointer-events-auto';
+
+      let icon = 'info';
+      let iconColor = 'text-cineGold-400';
+      if (type === 'success') { icon = 'check-circle'; iconColor = 'text-emerald-400'; }
+      if (type === 'error') { icon = 'alert-triangle'; iconColor = 'text-rose-400'; }
+
+      toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${iconColor} shrink-0"></i><span>${message}</span>`;
+      container.appendChild(toast);
+      if (window.lucide) lucide.createIcons();
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    /* =====================================================================
+       CLOUD SYNC (SUPABASE)
+       ===================================================================== */
+    window.openCloudModal = function() {
+      const modal = document.getElementById('cloudModal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      setTimeout(() => modal.classList.remove('opacity-0'), 10);
+
+      const savedUrl = localStorage.getItem('cinepick_supabase_url') || '';
+      const savedKey = localStorage.getItem('cinepick_supabase_key') || '';
+      const savedTable = localStorage.getItem('cinepick_supabase_table') || 'movies';
+
+      if (elements.cloudSupabaseUrl) elements.cloudSupabaseUrl.value = savedUrl;
+      if (elements.cloudSupabaseKey) elements.cloudSupabaseKey.value = savedKey;
+      if (elements.cloudSupabaseTable) elements.cloudSupabaseTable.value = savedTable;
+    };
+
+    window.closeCloudModal = function() {
+      const modal = document.getElementById('cloudModal');
+      if (!modal) return;
+      modal.classList.add('opacity-0');
+      setTimeout(() => modal.classList.add('hidden'), 200);
+    };
+
+    function updateCloudBadge() {
+      const badge = document.getElementById('cloudStatusBadge');
+      if (!badge) return;
+      const url = localStorage.getItem('cinepick_supabase_url');
+      const key = localStorage.getItem('cinepick_supabase_key');
+      if (url && key) {
+        badge.className = 'w-2 h-2 rounded-full bg-cyan-400 animate-pulse';
+        badge.title = 'Cloud Connected';
+      } else {
+        badge.className = 'w-2 h-2 rounded-full bg-slate-600';
+        badge.title = 'Local Only';
+      }
+    }
+
+    async function syncMovieChangeToCloud(movie) {
+      const url = localStorage.getItem('cinepick_supabase_url');
+      const key = localStorage.getItem('cinepick_supabase_key');
+      const table = localStorage.getItem('cinepick_supabase_table') || 'movies';
+      if (!url || !key || !movie) return;
+
+      try {
+        const cleanUrl = url.replace(/\/+$/, '');
+        const endpoint = `${cleanUrl}/rest/v1/${table}?on_conflict=id`;
+        await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': key,
+            'Authorization': `Bearer ${key}`,
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({
+            id: String(movie.id),
+            title: movie.title || '',
+            director: movie.director || '',
+            studio: movie.studio || '',
+            country: movie.country || '',
+            year: movie.year || null,
+            watched: Boolean(movie.watched),
+            genres: movie.genres || '',
+            poster: movie.poster || '',
+            overview: movie.overview || ''
+          })
+        });
+      } catch (err) {
+        console.warn('Cloud sync background error:', err);
+      }
+    }
+
+    async function deleteMovieFromCloud(movieId) {
+      const url = localStorage.getItem('cinepick_supabase_url');
+      const key = localStorage.getItem('cinepick_supabase_key');
+      const table = localStorage.getItem('cinepick_supabase_table') || 'movies';
+      if (!url || !key || !movieId) return;
+
+      try {
+        const cleanUrl = url.replace(/\/+$/, '');
+        const endpoint = `${cleanUrl}/rest/v1/${table}?id=eq.${encodeURIComponent(movieId)}`;
+        await fetch(endpoint, {
+          method: 'DELETE',
+          headers: {
+            'apikey': key,
+            'Authorization': `Bearer ${key}`
+          }
+        });
+      } catch (e) {}
+    }
+
+    async function handlePushToCloud() {
+      const url = (elements.cloudSupabaseUrl.value || '').trim().replace(/\/+$/, '');
+      const key = (elements.cloudSupabaseKey.value || '').trim();
+      const table = (elements.cloudSupabaseTable.value || 'movies').trim();
+
+      if (!url || !key) {
+        showToast('Please enter Supabase URL and Anon Key first', 'error');
         return;
       }
 
-      elements.tmdbCandidateList.innerHTML = `<p class="text-[11px] text-slate-400 text-center py-4"><i data-lucide="loader-2" class="w-4 h-4 animate-spin inline mr-1"></i> Searching TMDb...</p>`;
-      if (window.lucide) lucide.createIcons();
+      showToast('Uploading movies to Supabase...', 'info');
 
       try {
-        const results = await searchTmdbMovies(query);
-        if (results.length === 0) {
-          elements.tmdbCandidateList.innerHTML = `<p class="text-[11px] text-amber-400 text-center py-4">No results found for "${query}". Try alternative spelling or English/original title.</p>`;
+        const payload = collectionData.map(m => ({
+          id: String(m.id),
+          title: m.title || '',
+          director: m.director || '',
+          studio: m.studio || '',
+          country: m.country || '',
+          year: m.year ? parseInt(m.year, 10) : null,
+          watched: Boolean(m.watched),
+          genres: m.genres || '',
+          poster: m.poster || '',
+          overview: m.overview || ''
+        }));
+
+        const endpoint = `${url}/rest/v1/${table}?on_conflict=id`;
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': key,
+            'Authorization': `Bearer ${key}`,
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || `Server responded with ${res.status}`);
+        }
+
+        showToast(`Successfully pushed ${payload.length} movies to cloud!`, 'success');
+        localStorage.setItem('cinepick_supabase_url', url);
+        localStorage.setItem('cinepick_supabase_key', key);
+        localStorage.setItem('cinepick_supabase_table', table);
+        updateCloudBadge();
+      } catch (err) {
+        showToast(`Push failed: ${err.message}`, 'error');
+      }
+    }
+
+    async function handlePullFromCloud() {
+      const url = (elements.cloudSupabaseUrl.value || localStorage.getItem('cinepick_supabase_url') || '').trim().replace(/\/+$/, '');
+      const key = (elements.cloudSupabaseKey.value || localStorage.getItem('cinepick_supabase_key') || '').trim();
+      const table = (elements.cloudSupabaseTable.value || localStorage.getItem('cinepick_supabase_table') || 'movies').trim();
+
+      if (!url || !key) {
+        showToast('Please enter Supabase URL and Anon Key first', 'error');
+        return;
+      }
+
+      showToast('Fetching collection from cloud...', 'info');
+
+      try {
+        const endpoint = `${url}/rest/v1/${table}?select=*`;
+        const res = await fetch(endpoint, {
+          headers: {
+            'apikey': key,
+            'Authorization': `Bearer ${key}`
+          }
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || `Server returned ${res.status}`);
+        }
+
+        const data = await res.json();
+        if (!Array.isArray(data) || data.length === 0) {
+          showToast('Connected, but the table contains 0 movies.', 'info');
           return;
         }
 
-        elements.tmdbCandidateList.innerHTML = '';
-        results.slice(0, 10).forEach(item => {
-          const year = item.release_date ? item.release_date.split('-')[0] : 'N/A';
-          const posterUrl = item.poster_path ? `https://image.tmdb.org/t/p/w92${item.poster_path}` : '';
+        collectionData = data.map(item => ({
+          id: String(item.id),
+          title: item.title || 'Untitled',
+          director: item.director || 'Unknown Director',
+          studio: item.studio || 'Independent',
+          country: item.country || 'Unknown Country',
+          year: item.year ? parseInt(item.year, 10) : null,
+          watched: Boolean(item.watched),
+          genres: item.genres || '',
+          poster: item.poster || '',
+          overview: item.overview || ''
+        }));
 
-          const candidateCard = document.createElement('div');
-          candidateCard.className = 'flex items-center justify-between gap-3 p-2 bg-cineDark-900/80 hover:bg-cineDark-850 rounded-lg border border-slate-800 transition';
-          candidateCard.innerHTML = `
-            <div class="flex items-center gap-2.5 min-w-0">
-              ${posterUrl ? `<img src="${posterUrl}" class="w-9 h-13 object-cover rounded shadow shrink-0">` : `<div class="w-9 h-13 bg-slate-800 rounded flex items-center justify-center shrink-0 text-slate-500"><i data-lucide="film" class="w-4 h-4"></i></div>`}
-              <div class="min-w-0">
-                <h4 class="font-bold text-slate-100 text-xs truncate">${item.title}</h4>
-                <div class="flex items-center gap-1.5 text-[10px] text-slate-400">
-                  <span class="text-cineGold-400 font-semibold">${year}</span>
-                  ${item.original_title && item.original_title !== item.title ? `<span>&bull;</span><span class="truncate italic">${item.original_title}</span>` : ''}
-                </div>
-                <p class="text-[10px] text-slate-400 line-clamp-1 mt-0.5">${item.overview || 'No overview available.'}</p>
-              </div>
-            </div>
-            <button type="button" class="btn-select-tmdb-match shrink-0 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-semibold transition" data-id="${item.id}">
-              Link This
-            </button>
-          `;
-          elements.tmdbCandidateList.appendChild(candidateCard);
-        });
+        localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+        localStorage.setItem('cinepick_supabase_url', url);
+        localStorage.setItem('cinepick_supabase_key', key);
+        localStorage.setItem('cinepick_supabase_table', table);
 
-        elements.tmdbCandidateList.querySelectorAll('.btn-select-tmdb-match').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const tmdbId = btn.getAttribute('data-id');
-            btn.disabled = true;
-            btn.textContent = 'Linking...';
-            try {
-              const fullDetails = await fetchDetailsForTmdbId(tmdbId);
-              // Fill form fields
-              elements.formTitle.value = fullDetails.title;
-              elements.formDirector.value = fullDetails.director;
-              elements.formStudio.value = fullDetails.studio;
-              if (fullDetails.year) elements.formYear.value = fullDetails.year;
-              if (fullDetails.genres) elements.formGenre.value = fullDetails.genres;
-              if (fullDetails.country) elements.formCountry.value = fullDetails.country;
-              if (fullDetails.poster) elements.formPoster.value = fullDetails.poster;
-              
-              // Store overview on current pick if updating
-              if (currentSelectedMovie) {
-                currentSelectedMovie.overview = fullDetails.overview;
-                currentSelectedMovie.poster = fullDetails.poster;
-              }
+        elements.collectionSummary.textContent = `Cloud Synced (${collectionData.length} titles)`;
+        elements.totalTitleCount.textContent = collectionData.length;
+        if (elements.btnClearData) {
+          elements.btnClearData.classList.remove('hidden');
+          elements.btnClearData.classList.add('flex');
+        }
 
-              elements.tmdbSearchContainer.classList.add('hidden');
-              showToast(`Linked to "${fullDetails.title}" (${fullDetails.year})!`);
-            } catch (err) {
-              showToast(err.message || "Failed to link movie.");
-            }
-          });
-        });
-
-        if (window.lucide) lucide.createIcons();
+        updateCloudBadge();
+        populateDynamicDropdowns();
+        applyFilters();
+        showToast(`Successfully pulled ${collectionData.length} movies from cloud!`, 'success');
+        window.closeCloudModal();
       } catch (err) {
-        elements.tmdbCandidateList.innerHTML = `<p class="text-[11px] text-rose-400 text-center py-4">${err.message}</p>`;
+        showToast(`Pull failed: ${err.message}`, 'error');
       }
     }
 
-    async function fetchMetadataForTitle(rawTitle, yearHint) {
-      const apiKey = elements.tmdbApiKeyInput ? elements.tmdbApiKeyInput.value.trim() : (localStorage.getItem('cinepick_tmdb_key') || '');
-      if (!apiKey) {
-        throw new Error("No TMDb API key provided. Please enter a key in the Auto-Enrich modal.");
-      }
-      localStorage.setItem('cinepick_tmdb_key', apiKey);
-
-      // Clean title for search (remove 4K, 3D, Blu-ray, parenthetical subtitles)
-      let cleanTitle = rawTitle.replace(/\s*\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '');
-      cleanTitle = cleanTitle.replace(/\b(4k|uhd|blu-ray|dvd|steelbook|criterion|kino)\b/gi, '').trim();
-
-      const authHeaders = apiKey.length > 50 ? { 'Authorization': `Bearer ${apiKey}` } : {};
-      const queryParam = apiKey.length > 50 ? '' : `&api_key=${apiKey}`;
-
-      let searchUrl = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(cleanTitle)}${queryParam}&include_adult=false`;
-      if (yearHint) {
-        searchUrl += `&year=${yearHint}`;
-      }
-
-      const res = await fetch(searchUrl, { headers: authHeaders });
-      if (!res.ok) throw new Error(`TMDb search failed (Status ${res.status})`);
-      const searchData = await res.json();
-
-      if (!searchData.results || searchData.results.length === 0) {
-        throw new Error(`No match found on TMDb for "${cleanTitle}"`);
-      }
-
-      const topResult = searchData.results[0];
-      return await fetchDetailsForTmdbId(topResult.id);
-    }
-<!-- ... existing code ... -->
     /* =====================================================================
-       ADD & EDIT MOVIE DETAILS MODAL
+       COLLECTION & STORAGE INITIALIZATION
+       ===================================================================== */
+    function loadInitialCollection() {
+      const saved = localStorage.getItem('cinepick_clean_collection');
+      if (saved) {
+        try {
+          collectionData = JSON.parse(saved);
+          elements.collectionSummary.textContent = `Saved Local Collection (${collectionData.length} titles)`;
+          if (elements.btnClearData) {
+            elements.btnClearData.classList.remove('hidden');
+            elements.btnClearData.classList.add('flex');
+          }
+        } catch (e) {
+          collectionData = [...SAMPLE_MOVIES];
+        }
+      } else {
+        collectionData = [...SAMPLE_MOVIES];
+        elements.collectionSummary.textContent = `Sample Starter Collection (${collectionData.length} titles)`;
+      }
+
+      // Load History
+      const savedHist = localStorage.getItem('cinepick_pick_history');
+      if (savedHist) {
+        try { pickHistory = JSON.parse(savedHist); } catch (e) { pickHistory = []; }
+      }
+      updateHistoryUI();
+      updateCloudBadge();
+
+      // Check if auto-pull is possible on startup
+      const cloudUrl = localStorage.getItem('cinepick_supabase_url');
+      const cloudKey = localStorage.getItem('cinepick_supabase_key');
+      if (cloudUrl && cloudKey && !saved) {
+        handlePullFromCloud();
+      }
+
+      elements.totalTitleCount.textContent = collectionData.length;
+      populateDynamicDropdowns();
+      applyFilters();
+    }
+
+    /* =====================================================================
+       DYNAMIC FILTERS & DECADES
+       ===================================================================== */
+    function populateDynamicDropdowns() {
+      const studios = new Set();
+      const genres = new Set();
+      const countries = new Set();
+      const decades = new Set();
+
+      collectionData.forEach(m => {
+        if (m.studio && m.studio !== 'Unknown Studio') {
+          m.studio.split(/[,/]/).forEach(s => {
+            const clean = s.trim();
+            if (clean) studios.add(clean);
+          });
+        }
+        if (m.genres) {
+          m.genres.split(/[,/]/).forEach(g => {
+            const clean = g.trim();
+            if (clean) genres.add(clean);
+          });
+        }
+        if (m.country && m.country !== 'Unknown Country') {
+          m.country.split(/[,/]/).forEach(c => {
+            const clean = c.trim();
+            if (clean) countries.add(clean);
+          });
+        }
+        if (m.year && !isNaN(m.year)) {
+          const dec = Math.floor(m.year / 10) * 10;
+          decades.add(dec);
+        }
+      });
+
+      // Populate Decades
+      const sortedDecades = Array.from(decades).sort((a, b) => b - a);
+      elements.filterDecade.innerHTML = '<option value="ALL">All Decades</option>';
+      sortedDecades.forEach(d => {
+        elements.filterDecade.innerHTML += `<option value="${d}">${d}s</option>`;
+      });
+
+      // Populate Studios
+      const sortedStudios = Array.from(studios).sort();
+      elements.filterStudio.innerHTML = '<option value="ALL">All Studios</option>';
+      sortedStudios.forEach(s => {
+        elements.filterStudio.innerHTML += `<option value="${s}">${s}</option>`;
+      });
+
+      // Populate Genres
+      const sortedGenres = Array.from(genres).sort();
+      elements.filterGenre.innerHTML = '<option value="ALL">All Genres</option>';
+      sortedGenres.forEach(g => {
+        elements.filterGenre.innerHTML += `<option value="${g}">${g}</option>`;
+      });
+
+      // Populate Countries
+      const sortedCountries = Array.from(countries).sort();
+      elements.filterCountry.innerHTML = '<option value="ALL">All Countries</option>';
+      sortedCountries.forEach(c => {
+        elements.filterCountry.innerHTML += `<option value="${c}">${c}</option>`;
+      });
+
+      // Re-apply current filter selection values
+      elements.filterDecade.value = activeFilters.decade;
+      elements.filterStudio.value = activeFilters.studio;
+      elements.filterGenre.value = activeFilters.genre;
+      elements.filterCountry.value = activeFilters.country;
+    }
+
+    function applyFilters() {
+      filteredMovies = collectionData.filter(movie => {
+        // Decade Filter
+        if (activeFilters.decade !== 'ALL') {
+          const targetDecade = parseInt(activeFilters.decade, 10);
+          if (!movie.year) return false;
+          const movieDecade = Math.floor(movie.year / 10) * 10;
+          if (movieDecade !== targetDecade) return false;
+        }
+
+        // Studio Filter
+        if (activeFilters.studio !== 'ALL') {
+          if (!movie.studio || !movie.studio.toLowerCase().includes(activeFilters.studio.toLowerCase())) {
+            return false;
+          }
+        }
+
+        // Genre Filter
+        if (activeFilters.genre !== 'ALL') {
+          if (!movie.genres || !movie.genres.toLowerCase().includes(activeFilters.genre.toLowerCase())) {
+            return false;
+          }
+        }
+
+        // Country Filter
+        if (activeFilters.country !== 'ALL') {
+          if (!movie.country || !movie.country.toLowerCase().includes(activeFilters.country.toLowerCase())) {
+            return false;
+          }
+        }
+
+        // Watched Status Filter
+        if (activeFilters.watched === 'WATCHED' && !movie.watched) return false;
+        if (activeFilters.watched === 'UNWATCHED' && movie.watched) return false;
+
+        return true;
+      });
+
+      elements.filteredCountBadge.textContent = `${filteredMovies.length} / ${collectionData.length}`;
+
+      if (filteredMovies.length > 0) {
+        if (!currentSelectedMovie || !filteredMovies.some(m => m.id === currentSelectedMovie.id)) {
+          displayMovieOnCard(filteredMovies[0]);
+        }
+      } else {
+        displayEmptyCard();
+      }
+
+      renderCatalogTable();
+    }
+
+    /* =====================================================================
+       CARD DISPLAY & TICKER LOGIC
+       ===================================================================== */
+    function displayMovieOnCard(movie) {
+      if (!movie) return;
+      currentSelectedMovie = movie;
+
+      elements.cardTitle.textContent = movie.title;
+      elements.cardDirector.textContent = movie.director || 'Unknown Director';
+      elements.cardStudio.textContent = (movie.studio || 'INDEPENDENT').toUpperCase();
+      elements.cardYearBadge.textContent = movie.year || 'N/A';
+      elements.cardCountry.textContent = movie.country || 'Unknown Country';
+      elements.cardOverview.textContent = movie.overview || 'No synopsis recorded for this title.';
+
+      // Watched Status Badge
+      if (movie.watched) {
+        elements.cardWatchedBadge.classList.remove('hidden');
+        elements.btnToggleCardWatched.classList.add('text-emerald-400', 'border-emerald-500/40');
+      } else {
+        elements.cardWatchedBadge.classList.add('hidden');
+        elements.btnToggleCardWatched.classList.remove('text-emerald-400', 'border-emerald-500/40');
+      }
+
+      // Genres
+      elements.cardGenres.innerHTML = '';
+      if (movie.genres) {
+        movie.genres.split(/[,/]/).forEach(g => {
+          const clean = g.trim();
+          if (clean) {
+            elements.cardGenres.innerHTML += `<span class="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[11px] text-slate-300">${clean}</span>`;
+          }
+        });
+      }
+
+      // Poster
+      if (movie.poster) {
+        elements.cardPoster.src = movie.poster;
+        elements.cardPoster.classList.remove('hidden');
+        elements.cardPosterFallback.classList.add('hidden');
+        elements.cardPoster.onerror = () => {
+          elements.cardPoster.classList.add('hidden');
+          elements.cardPosterFallback.classList.remove('hidden');
+        };
+      } else {
+        elements.cardPoster.classList.add('hidden');
+        elements.cardPosterFallback.classList.remove('hidden');
+      }
+    }
+
+    function displayEmptyCard() {
+      currentSelectedMovie = null;
+      elements.cardTitle.textContent = 'No Movies Match Filters';
+      elements.cardDirector.textContent = 'Try loosening your filter selections';
+      elements.cardStudio.textContent = 'EMPTY POOL';
+      elements.cardYearBadge.textContent = '---';
+      elements.cardCountry.textContent = '---';
+      elements.cardOverview.textContent = 'No titles found in your current filter combination.';
+      elements.cardWatchedBadge.classList.add('hidden');
+      elements.cardGenres.innerHTML = '';
+      elements.cardPoster.classList.add('hidden');
+      elements.cardPosterFallback.classList.remove('hidden');
+    }
+
+    /* =====================================================================
+       SPIN ROULETTE ENGINE
+       ===================================================================== */
+    function spinRoulette() {
+      if (isRolling) return;
+      if (filteredMovies.length === 0) {
+        showToast('No movies available in current filter pool!', 'error');
+        return;
+      }
+
+      isRolling = true;
+      elements.btnSpinRoulette.disabled = true;
+      elements.rollerTicker.classList.remove('hidden');
+      elements.movieCardContainer.classList.add('reel-blur');
+
+      let rollSpeed = 50;
+      let iterations = 0;
+      const maxIterations = 24 + Math.floor(Math.random() * 8);
+
+      function step() {
+        const randIndex = Math.floor(Math.random() * filteredMovies.length);
+        const randomMovie = filteredMovies[randIndex];
+        
+        displayMovieOnCard(randomMovie);
+        elements.rollerTicker.textContent = `ROLLING: ${randomMovie.title.toUpperCase()} (${randomMovie.year || '?'})`;
+        AudioEngine.playTick();
+
+        iterations++;
+        if (iterations < maxIterations) {
+          rollSpeed += 12; // Deceleration curve
+          setTimeout(step, rollSpeed);
+        } else {
+          finalizePick(randomMovie);
+        }
+      }
+
+      step();
+    }
+
+    function finalizePick(winner) {
+      isRolling = false;
+      elements.btnSpinRoulette.disabled = false;
+      elements.rollerTicker.classList.add('hidden');
+      elements.movieCardContainer.classList.remove('reel-blur');
+
+      displayMovieOnCard(winner);
+      AudioEngine.playWinner();
+
+      // Confetti burst
+      try {
+        if (window.confetti) {
+          confetti({
+            particleCount: 50,
+            spread: 60,
+            origin: { y: 0.65 },
+            colors: ['#fbbf24', '#f59e0b', '#d97706', '#ffffff']
+          });
+        }
+      } catch (e) {}
+
+      // Add to history
+      pickHistory.unshift({
+        ...winner,
+        pickedAt: new Date().toISOString()
+      });
+      if (pickHistory.length > 50) pickHistory.pop();
+      localStorage.setItem('cinepick_pick_history', JSON.stringify(pickHistory));
+      updateHistoryUI();
+      showToast(`Selected "${winner.title}" for movie night!`, 'success');
+    }
+
+    /* =====================================================================
+       CATALOG TABLE & QUICK BROWSE
+       ===================================================================== */
+    function renderCatalogTable() {
+      if (!elements.catalogTableBody) return;
+      const query = (elements.catalogSearchInput ? elements.catalogSearchInput.value : '').toLowerCase().trim();
+
+      const displayed = filteredMovies.filter(m => {
+        if (!query) return true;
+        return (m.title && m.title.toLowerCase().includes(query)) ||
+               (m.director && m.director.toLowerCase().includes(query)) ||
+               (m.studio && m.studio.toLowerCase().includes(query));
+      });
+
+      if (displayed.length === 0) {
+        elements.catalogTableBody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-500">No movies match current filters.</td></tr>`;
+        return;
+      }
+
+      elements.catalogTableBody.innerHTML = displayed.map(m => `
+        <tr class="hover:bg-slate-800/40 transition group">
+          <td class="py-2 px-3 font-semibold text-slate-200">
+            <span class="hover:text-cineGold-400 cursor-pointer" onclick="window.previewMovieById('${m.id}')">${m.title}</span>
+          </td>
+          <td class="py-2 px-3 text-slate-400 font-mono">${m.year || '---'}</td>
+          <td class="py-2 px-3 text-slate-300 truncate max-w-[150px]">${m.director || '---'}</td>
+          <td class="py-2 px-3 text-slate-400 truncate max-w-[140px]">${m.studio || '---'}</td>
+          <td class="py-2 px-3 text-slate-400">${m.country || '---'}</td>
+          <td class="py-2 px-3 text-center">
+            <button onclick="window.toggleWatchedFromCatalog('${m.id}')" class="px-2 py-0.5 rounded text-[10px] font-bold ${m.watched ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400 hover:text-white'}">
+              ${m.watched ? 'Watched' : 'Unwatched'}
+            </button>
+          </td>
+          <td class="py-2 px-3 text-right">
+            <button onclick="window.editMovieById('${m.id}')" class="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition">
+              <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    window.previewMovieById = function(id) {
+      const found = collectionData.find(m => m.id === id);
+      if (found) {
+        displayMovieOnCard(found);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+
+    window.toggleWatchedFromCatalog = function(id) {
+      const found = collectionData.find(m => m.id === id);
+      if (found) {
+        found.watched = !found.watched;
+        localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+        syncMovieChangeToCloud(found);
+        applyFilters();
+        if (currentSelectedMovie && currentSelectedMovie.id === id) {
+          displayMovieOnCard(found);
+        }
+      }
+    };
+
+    window.editMovieById = function(id) {
+      const found = collectionData.find(m => m.id === id);
+      if (found) openEditMovieModal(found);
+    };
+
+    /* =====================================================================
+       HISTORY DRAWER
+       ===================================================================== */
+    function updateHistoryUI() {
+      if (!elements.historyListContainer) return;
+
+      if (pickHistory.length === 0) {
+        elements.historyListContainer.innerHTML = `
+          <div class="h-64 flex flex-col items-center justify-center text-slate-600 text-center gap-2">
+            <i data-lucide="film" class="w-8 h-8"></i>
+            <p class="text-xs">No movies picked yet.</p>
+          </div>
+        `;
+        elements.historyCountBadge.classList.add('hidden');
+        elements.historyTotalText.textContent = '0 picks recorded';
+        if (window.lucide) lucide.createIcons();
+        return;
+      }
+
+      elements.historyCountBadge.textContent = pickHistory.length;
+      elements.historyCountBadge.classList.remove('hidden');
+      elements.historyTotalText.textContent = `${pickHistory.length} picks recorded`;
+
+      elements.historyListContainer.innerHTML = pickHistory.map(item => `
+        <div class="p-3 rounded-xl bg-cineDark-950 border border-slate-800 flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <h4 class="font-bold text-slate-200 text-xs truncate">${item.title}</h4>
+            <p class="text-[10px] text-slate-400">${item.year || 'N/A'} &bull; ${item.director || 'Unknown'}</p>
+          </div>
+          <button onclick="window.previewMovieById('${item.id}')" class="px-2.5 py-1 rounded-lg bg-cineDark-850 hover:bg-slate-800 text-[10px] text-cineGold-400 border border-slate-700 shrink-0 font-semibold">
+            View
+          </button>
+        </div>
+      `).join('');
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    /* =====================================================================
+       ADD & EDIT MOVIE MODAL
        ===================================================================== */
     function openAddMovieModal() {
       elements.movieModalTitle.textContent = "Add Title to Collection";
       elements.movieForm.reset();
       elements.formMovieId.value = '';
       elements.formCountry.value = 'United States';
-      if (elements.formGenre) elements.formGenre.value = '';
-      if (elements.formPoster) elements.formPoster.value = '';
       elements.formWatched.checked = false;
       elements.btnDeleteMovie.classList.add('hidden');
-      if (elements.tmdbSearchContainer) elements.tmdbSearchContainer.classList.add('hidden');
 
       elements.movieModal.classList.remove('hidden');
       setTimeout(() => elements.movieModal.classList.remove('opacity-0'), 10);
@@ -313,16 +1421,11 @@
       elements.formDirector.value = movie.director || '';
       elements.formStudio.value = movie.studio || '';
       elements.formYear.value = movie.year || '';
-      if (elements.formGenre) elements.formGenre.value = movie.genres || '';
+      elements.formGenre.value = movie.genres || '';
       elements.formCountry.value = movie.country || '';
-      if (elements.formPoster) elements.formPoster.value = movie.poster || '';
+      elements.formPoster.value = movie.poster || '';
       elements.formWatched.checked = Boolean(movie.watched);
-
       elements.btnDeleteMovie.classList.remove('hidden');
-      if (elements.tmdbSearchContainer) {
-        elements.tmdbSearchContainer.classList.add('hidden');
-        if (elements.tmdbCustomSearchQuery) elements.tmdbCustomSearchQuery.value = movie.title || '';
-      }
 
       elements.movieModal.classList.remove('hidden');
       setTimeout(() => elements.movieModal.classList.remove('opacity-0'), 10);
@@ -339,8 +1442,6 @@
       const id = elements.formMovieId.value;
       const isNew = !id;
 
-      const posterVal = elements.formPoster ? elements.formPoster.value.trim() : '';
-
       const movieObj = {
         id: id || 'mov_' + Math.random().toString(36).substr(2, 9),
         title: elements.formTitle.value.trim(),
@@ -350,30 +1451,29 @@
         genres: elements.formGenre ? elements.formGenre.value.trim() : '',
         country: elements.formCountry.value.trim() || 'Unknown Country',
         watched: elements.formWatched.checked,
-        poster: posterVal || (currentSelectedMovie && currentSelectedMovie.id === id ? (currentSelectedMovie.poster || '') : ''),
+        poster: elements.formPoster.value.trim() || (currentSelectedMovie && currentSelectedMovie.id === id ? currentSelectedMovie.poster : ''),
         overview: currentSelectedMovie && currentSelectedMovie.id === id ? (currentSelectedMovie.overview || '') : ''
       };
 
       if (isNew) {
         collectionData.unshift(movieObj);
-        showToast(`Added "${movieObj.title}" to collection!`);
+        showToast(`Added "${movieObj.title}"!`, 'success');
       } else {
-        const index = collectionData.findIndex(m => m.id === id);
-        if (index !== -1) {
-          collectionData[index] = movieObj;
-          showToast(`Updated details for "${movieObj.title}"!`);
+        const idx = collectionData.findIndex(m => m.id === id);
+        if (idx !== -1) {
+          collectionData[idx] = movieObj;
+          showToast(`Updated "${movieObj.title}"!`, 'success');
         }
       }
 
       localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
-      // Sync added or edited movie to cloud
       syncMovieChangeToCloud(movieObj);
 
       populateDynamicDropdowns();
       applyFilters();
 
       if (currentSelectedMovie && currentSelectedMovie.id === movieObj.id) {
-        finalizePick(movieObj);
+        displayMovieOnCard(movieObj);
       }
 
       closeMovieModal();
@@ -382,28 +1482,452 @@
         elements.btnClearData.classList.add('flex');
       }
     }
-<!-- ... existing code ... -->
-      // TMDb Interactive Search & Link listeners
-      on(elements.btnToggleTmdbSearch, 'click', () => {
-        elements.tmdbSearchContainer.classList.toggle('hidden');
-        if (!elements.tmdbSearchContainer.classList.contains('hidden')) {
-          elements.tmdbCustomSearchQuery.value = elements.formTitle.value || '';
-          elements.tmdbCustomSearchQuery.focus();
+
+    function handleDeleteMovie() {
+      const id = elements.formMovieId.value;
+      if (!id) return;
+      const movie = collectionData.find(m => m.id === id);
+      if (!movie) return;
+
+      collectionData = collectionData.filter(m => m.id !== id);
+      localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+      deleteMovieFromCloud(id);
+
+      showToast(`Removed "${movie.title}" from collection.`, 'info');
+      closeMovieModal();
+      populateDynamicDropdowns();
+      applyFilters();
+    }
+
+    /* =====================================================================
+       TMDB AUTO-ENRICHMENT SERVICE
+       ===================================================================== */
+    function openEnrichModal() {
+      elements.tmdbApiKeyInput.value = localStorage.getItem('cinepick_tmdb_key') || '';
+      elements.enrichCollectionStatus.textContent = `${collectionData.length} titles`;
+      
+      const missing = collectionData.filter(m => !m.poster || !m.genres || m.studio === 'Independent' || !m.year);
+      elements.enrichMissingCount.textContent = `${missing.length} titles`;
+      elements.enrichProgressContainer.classList.add('hidden');
+
+      elements.enrichModal.classList.remove('hidden');
+      setTimeout(() => elements.enrichModal.classList.remove('opacity-0'), 10);
+    }
+
+    function closeEnrichModal() {
+      elements.enrichModal.classList.add('opacity-0');
+      setTimeout(() => elements.enrichModal.classList.add('hidden'), 200);
+    }
+
+    async function startAutoEnrichment() {
+      const apiKey = elements.tmdbApiKeyInput.value.trim();
+      if (!apiKey) {
+        showToast("Please enter a TMDb API key or token!", "error");
+        return;
+      }
+      localStorage.setItem('cinepick_tmdb_key', apiKey);
+
+      const targets = collectionData.filter(m => !m.poster || !m.genres || m.studio === 'Independent' || !m.year);
+      if (targets.length === 0) {
+        showToast("All movies already have posters and metadata!", "success");
+        return;
+      }
+
+      elements.enrichProgressContainer.classList.remove('hidden');
+      elements.btnStartEnrich.disabled = true;
+
+      const authHeaders = apiKey.length > 50 ? { 'Authorization': `Bearer ${apiKey}` } : {};
+      const queryParam = apiKey.length > 50 ? '' : `&api_key=${apiKey}`;
+
+      let completed = 0;
+
+      for (let movie of targets) {
+        try {
+          let clean = movie.title.replace(/\s*\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '');
+          clean = clean.replace(/\b(4k|uhd|blu-ray|dvd|steelbook|criterion|kino)\b/gi, '').trim();
+
+          let searchUrl = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(clean)}${queryParam}&include_adult=false`;
+          if (movie.year) searchUrl += `&year=${movie.year}`;
+
+          const res = await fetch(searchUrl, { headers: authHeaders });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.results && data.results.length > 0) {
+              const top = data.results[0];
+              const detailUrl = `https://api.themoviedb.org/3/movie/${top.id}?append_to_response=credits${queryParam}`;
+              const dRes = await fetch(detailUrl, { headers: authHeaders });
+              if (dRes.ok) {
+                const details = await dRes.json();
+                
+                if (details.poster_path && !movie.poster) {
+                  movie.poster = `https://image.tmdb.org/t/p/w500${details.poster_path}`;
+                }
+                if (details.overview && !movie.overview) {
+                  movie.overview = details.overview;
+                }
+                if (details.genres && details.genres.length > 0 && !movie.genres) {
+                  movie.genres = details.genres.map(g => g.name).join(', ');
+                }
+                if (details.production_companies && details.production_companies.length > 0 && (!movie.studio || movie.studio === 'Independent')) {
+                  movie.studio = details.production_companies.slice(0, 2).map(c => c.name).join(', ');
+                }
+                if (details.release_date && !movie.year) {
+                  movie.year = parseInt(details.release_date.split('-')[0], 10);
+                }
+                if (details.credits && details.credits.crew && (!movie.director || movie.director === 'Unknown Director')) {
+                  const dirs = details.credits.crew.filter(c => c.job === 'Director').map(c => c.name);
+                  if (dirs.length > 0) movie.director = dirs.join(', ');
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("TMDb enrichment error on title:", movie.title, e);
         }
-      });
-      on(elements.btnCloseTmdbSearch, 'click', () => {
-        elements.tmdbSearchContainer.classList.add('hidden');
-      });
-      on(elements.btnExecuteTmdbSearch, 'click', handleExecuteTmdbSearch);
-      on(elements.tmdbCustomSearchQuery, 'keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          handleExecuteTmdbSearch();
+
+        completed++;
+        const pct = Math.round((completed / targets.length) * 100);
+        elements.enrichProgressBar.style.width = `${pct}%`;
+        elements.enrichProgressText.textContent = `${completed} / ${targets.length} enriched`;
+
+        // Gentle pause for rate limits
+        await new Promise(r => setTimeout(r, 120));
+      }
+
+      localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+      elements.btnStartEnrich.disabled = false;
+      showToast(`Finished enriching ${completed} movies!`, 'success');
+      populateDynamicDropdowns();
+      applyFilters();
+      if (currentSelectedMovie) displayMovieOnCard(currentSelectedMovie);
+    }
+
+    /* =====================================================================
+       CSV IMPORT & EXPORT
+       ===================================================================== */
+    function handleCsvImport(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const text = evt.target.result;
+        parseAndLoadCsv(text, file.name);
+      };
+      reader.readAsText(file);
+    }
+
+    function parseAndLoadCsv(csvText, filename = 'Imported File') {
+      const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
+      if (lines.length < 2) {
+        showToast("CSV file is empty or missing headers.", "error");
+        return;
+      }
+
+      const headers = parseCsvLine(lines[0]).map(h => h.trim().toLowerCase());
+      
+      const titleIdx = headers.findIndex(h => h.includes('title') || h === 'movie' || h === 'film');
+      const yearIdx = headers.findIndex(h => h.includes('year') || h === 'release' || h.includes('prod'));
+      const dirIdx = headers.findIndex(h => h.includes('director') || h.includes('filmmaker'));
+      const studioIdx = headers.findIndex(h => h.includes('studio') || h.includes('distributor') || h.includes('label'));
+      const countryIdx = headers.findIndex(h => h.includes('country') || h.includes('origin'));
+      const genreIdx = headers.findIndex(h => h.includes('genre') || h.includes('categories'));
+      const watchedIdx = headers.findIndex(h => h.includes('watched') || h.includes('viewed') || h.includes('seen'));
+      const posterIdx = headers.findIndex(h => h.includes('poster') || h.includes('image'));
+      const overviewIdx = headers.findIndex(h => h.includes('overview') || h.includes('synopsis') || h.includes('plot'));
+
+      if (titleIdx === -1) {
+        showToast("Could not find a 'Title' column in your CSV.", "error");
+        return;
+      }
+
+      const imported = [];
+      for (let i = 1; i < lines.length; i++) {
+        const row = parseCsvLine(lines[i]);
+        if (!row || row.length === 0 || !row[titleIdx]) continue;
+
+        const title = row[titleIdx].trim();
+        if (!title) continue;
+
+        let year = null;
+        if (yearIdx !== -1 && row[yearIdx]) {
+          const match = row[yearIdx].match(/\d{4}/);
+          if (match) year = parseInt(match[0], 10);
         }
+
+        const director = (dirIdx !== -1 && row[dirIdx]) ? row[dirIdx].trim() : 'Unknown Director';
+        const studio = (studioIdx !== -1 && row[studioIdx]) ? row[studioIdx].trim() : 'Independent';
+        const country = (countryIdx !== -1 && row[countryIdx]) ? row[countryIdx].trim() : 'United States';
+        const genres = (genreIdx !== -1 && row[genreIdx]) ? row[genreIdx].trim() : '';
+        const poster = (posterIdx !== -1 && row[posterIdx]) ? row[posterIdx].trim() : '';
+        const overview = (overviewIdx !== -1 && row[overviewIdx]) ? row[overviewIdx].trim() : '';
+
+        let watched = false;
+        if (watchedIdx !== -1 && row[watchedIdx]) {
+          const val = row[watchedIdx].trim().toLowerCase();
+          watched = (val === 'true' || val === 'yes' || val === '1' || val === 'watched' || val === 'y');
+        }
+
+        imported.push({
+          id: 'mov_' + Math.random().toString(36).substr(2, 9),
+          title,
+          director,
+          studio,
+          year,
+          genres,
+          country,
+          watched,
+          poster,
+          overview
+        });
+      }
+
+      if (imported.length === 0) {
+        showToast("No valid titles found in CSV.", "error");
+        return;
+      }
+
+      collectionData = imported;
+      localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+      elements.collectionSummary.textContent = `${filename} (${collectionData.length} titles)`;
+      elements.totalTitleCount.textContent = collectionData.length;
+      if (elements.btnClearData) {
+        elements.btnClearData.classList.remove('hidden');
+        elements.btnClearData.classList.add('flex');
+      }
+
+      populateDynamicDropdowns();
+      applyFilters();
+      showToast(`Loaded ${collectionData.length} titles from ${filename}!`, 'success');
+    }
+
+    function parseCsvLine(line) {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"' || char === "'") {
+          if (inQuotes && line[i + 1] === char) {
+            current += char;
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          result.push(current);
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current);
+      return result;
+    }
+
+    function exportCsv() {
+      if (collectionData.length === 0) {
+        showToast("No titles to export!", "error");
+        return;
+      }
+
+      const headers = ['Title', 'Director', 'Studio', 'Production Year', 'Genres', 'Country', 'Watched', 'Poster', 'Overview'];
+      const rows = collectionData.map(m => [
+        `"${(m.title || '').replace(/"/g, '""')}"`,
+        `"${(m.director || '').replace(/"/g, '""')}"`,
+        `"${(m.studio || '').replace(/"/g, '""')}"`,
+        m.year || '',
+        `"${(m.genres || '').replace(/"/g, '""')}"`,
+        `"${(m.country || '').replace(/"/g, '""')}"`,
+        m.watched ? 'Yes' : 'No',
+        `"${(m.poster || '').replace(/"/g, '""')}"`,
+        `"${(m.overview || '').replace(/"/g, '""')}"`
+      ]);
+
+      const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `clean_movie_collection_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("Collection exported successfully!", "success");
+    }
+
+    function handleClearCollection() {
+      localStorage.removeItem('cinepick_clean_collection');
+      collectionData = [...SAMPLE_MOVIES];
+      elements.collectionSummary.textContent = `Sample Starter Collection (${collectionData.length} titles)`;
+      elements.totalTitleCount.textContent = collectionData.length;
+      if (elements.btnClearData) {
+        elements.btnClearData.classList.remove('flex');
+        elements.btnClearData.classList.add('hidden');
+      }
+      populateDynamicDropdowns();
+      applyFilters();
+      showToast("Reset to sample starter collection.", "info");
+    }
+
+    /* =====================================================================
+       EVENT LISTENERS SETUP
+       ===================================================================== */
+    function setupEventListeners() {
+      const on = (el, event, handler) => { if (el) el.addEventListener(event, handler); };
+
+      // Spin button
+      on(elements.btnSpinRoulette, 'click', spinRoulette);
+
+      // Filters
+      on(elements.filterDecade, 'change', (e) => {
+        activeFilters.decade = e.target.value;
+        applyFilters();
       });
-      on(elements.btnClearFormPoster, 'click', () => {
-        if (elements.formPoster) elements.formPoster.value = '';
+      on(elements.filterStudio, 'change', (e) => {
+        activeFilters.studio = e.target.value;
+        applyFilters();
+      });
+      on(elements.filterGenre, 'change', (e) => {
+        activeFilters.genre = e.target.value;
+        applyFilters();
+      });
+      on(elements.filterCountry, 'change', (e) => {
+        activeFilters.country = e.target.value;
+        applyFilters();
       });
 
-      // Pick Buttons
-<!-- ... existing code ... -->
+      // Watched toggle filter pills
+      elements.watchedButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          elements.watchedButtons.forEach(b => {
+            b.classList.remove('bg-cineGold-500', 'text-cineDark-950');
+            b.classList.add('text-slate-400');
+          });
+          btn.classList.add('bg-cineGold-500', 'text-cineDark-950');
+          btn.classList.remove('text-slate-400');
+          activeFilters.watched = btn.dataset.watched;
+          applyFilters();
+        });
+      });
+
+      // Reset filters
+      on(elements.btnResetFilters, 'click', () => {
+        activeFilters = { decade: 'ALL', studio: 'ALL', genre: 'ALL', country: 'ALL', watched: 'ALL' };
+        elements.filterDecade.value = 'ALL';
+        elements.filterStudio.value = 'ALL';
+        elements.filterGenre.value = 'ALL';
+        elements.filterCountry.value = 'ALL';
+        elements.watchedButtons.forEach(b => {
+          if (b.dataset.watched === 'ALL') {
+            b.classList.add('bg-cineGold-500', 'text-cineDark-950');
+            b.classList.remove('text-slate-400');
+          } else {
+            b.classList.remove('bg-cineGold-500', 'text-cineDark-950');
+            b.classList.add('text-slate-400');
+          }
+        });
+        applyFilters();
+        showToast("Filters reset to defaults.");
+      });
+
+      // Card Watched toggle
+      on(elements.btnToggleCardWatched, 'click', () => {
+        if (!currentSelectedMovie) return;
+        currentSelectedMovie.watched = !currentSelectedMovie.watched;
+        localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+        syncMovieChangeToCloud(currentSelectedMovie);
+        displayMovieOnCard(currentSelectedMovie);
+        applyFilters();
+        showToast(`Marked "${currentSelectedMovie.title}" as ${currentSelectedMovie.watched ? 'Watched' : 'Unwatched'}.`);
+      });
+
+      // Card Edit
+      on(elements.btnEditCardMovie, 'click', () => {
+        if (currentSelectedMovie) openEditMovieModal(currentSelectedMovie);
+      });
+
+      // Add Movie
+      on(elements.btnAddTitle, 'click', openAddMovieModal);
+      on(elements.btnCloseMovieModal, 'click', closeMovieModal);
+      on(elements.btnCancelMovieModal, 'click', closeMovieModal);
+      on(elements.movieForm, 'submit', handleMovieFormSubmit);
+      on(elements.btnDeleteMovie, 'click', handleDeleteMovie);
+
+      // Browse catalog drawer
+      on(elements.btnToggleBrowse, 'click', () => {
+        elements.browseCatalogSection.classList.toggle('hidden');
+        if (!elements.browseCatalogSection.classList.contains('hidden')) {
+          renderCatalogTable();
+          elements.browseCatalogSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+      on(elements.btnCloseBrowse, 'click', () => {
+        elements.browseCatalogSection.classList.add('hidden');
+      });
+      on(elements.catalogSearchInput, 'input', renderCatalogTable);
+
+      // History drawer
+      on(elements.btnOpenHistory, 'click', () => {
+        elements.historyDrawer.classList.remove('hidden');
+        setTimeout(() => elements.historyDrawer.classList.remove('opacity-0'), 10);
+      });
+      on(elements.btnCloseHistory, 'click', () => {
+        elements.historyDrawer.classList.add('opacity-0');
+        setTimeout(() => elements.historyDrawer.classList.add('hidden'), 200);
+      });
+      on(elements.btnClearHistory, 'click', () => {
+        pickHistory = [];
+        localStorage.removeItem('cinepick_pick_history');
+        updateHistoryUI();
+        showToast("Pick history cleared.");
+      });
+
+      // CSV handlers
+      on(elements.csvFileInput, 'change', handleCsvImport);
+      on(elements.btnExportCsv, 'click', exportCsv);
+      on(elements.btnClearData, 'click', handleClearCollection);
+
+      // TMDb Enrich modal
+      on(elements.btnOpenEnrichModal, 'click', openEnrichModal);
+      on(elements.btnCloseEnrichModal, 'click', closeEnrichModal);
+      on(elements.btnCancelEnrich, 'click', closeEnrichModal);
+      on(elements.btnStartEnrich, 'click', startAutoEnrichment);
+
+      // Cloud modal handlers
+      on(elements.btnOpenCloudModal, 'click', window.openCloudModal);
+      on(elements.btnCloseCloudModal, 'click', window.closeCloudModal);
+      on(elements.btnSaveCloudConfig, 'click', () => {
+        const url = (elements.cloudSupabaseUrl.value || '').trim().replace(/\/+$/, '');
+        const key = (elements.cloudSupabaseKey.value || '').trim();
+        const table = (elements.cloudSupabaseTable.value || 'movies').trim();
+        localStorage.setItem('cinepick_supabase_url', url);
+        localStorage.setItem('cinepick_supabase_key', key);
+        localStorage.setItem('cinepick_supabase_table', table);
+        updateCloudBadge();
+        showToast("Cloud connection saved!", "success");
+        window.closeCloudModal();
+      });
+      on(elements.btnDisconnectCloud, 'click', () => {
+        localStorage.removeItem('cinepick_supabase_url');
+        localStorage.removeItem('cinepick_supabase_key');
+        updateCloudBadge();
+        showToast("Cloud disconnected.");
+        window.closeCloudModal();
+      });
+      on(elements.btnPushToCloud, 'click', handlePushToCloud);
+      on(elements.btnPullFromCloud, 'click', handlePullFromCloud);
+    }
+
+    /* =====================================================================
+       APP BOOTSTRAP
+       ===================================================================== */
+    window.addEventListener('DOMContentLoaded', () => {
+      initDOMElements();
+      setupEventListeners();
+      loadInitialCollection();
+      if (window.lucide) lucide.createIcons();
+    });
+  </script>
+</body>
+</html>
