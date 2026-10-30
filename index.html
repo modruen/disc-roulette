@@ -136,14 +136,14 @@
           </div>
 
           <!-- Cloud Sync Status Button -->
-          <button id="btnOpenCloudModal" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cineDark-850 hover:bg-cineDark-800 border border-slate-700/60 text-xs font-medium text-slate-300 transition shadow-sm">
+          <button id="btnOpenCloudModal" type="button" onclick="openCloudModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cineDark-850 hover:bg-cineDark-800 border border-slate-700/60 text-xs font-medium text-slate-300 transition shadow-sm cursor-pointer">
             <span id="cloudStatusDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
             <i data-lucide="cloud" class="w-3.5 h-3.5 text-sky-400"></i>
             <span id="cloudStatusText" class="hidden md:inline">Cloud Sync</span>
           </button>
 
           <!-- Auto-Enrich Metadata Button -->
-          <button id="btnOpenEnrichModal" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-950 to-cineDark-850 hover:from-indigo-900 hover:to-cineDark-800 border border-indigo-500/40 text-xs font-semibold text-indigo-300 transition shadow-sm">
+          <button id="btnOpenEnrichModal" type="button" onclick="openEnrichModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-950 to-cineDark-850 hover:from-indigo-900 hover:to-cineDark-800 border border-indigo-500/40 text-xs font-semibold text-indigo-300 transition shadow-sm cursor-pointer">
             <i data-lucide="sparkles" class="w-4 h-4 text-indigo-400"></i>
             <span class="hidden md:inline">Auto-Enrich Data</span>
           </button>
@@ -676,21 +676,21 @@
     </div>
 
     <!-- Modal: Cloud Database Sync Settings -->
-    <div id="cloudModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-200">
-      <div class="glass-panel border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl overflow-y-auto max-h-[90vh]">
+    <div id="cloudModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden" style="z-index: 9999;">
+      <div class="glass-panel border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl overflow-y-auto max-h-[90vh] relative">
         <div class="flex items-center justify-between border-b border-slate-800 pb-3">
           <div class="flex items-center gap-2">
             <i data-lucide="cloud-cog" class="w-5 h-5 text-sky-400"></i>
             <h3 class="font-display font-bold text-lg text-white">Cross-Device Cloud Sync</h3>
           </div>
-          <button id="btnCloseCloudModal" class="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition">
+          <button id="btnCloseCloudModal" type="button" onclick="closeCloudModal()" class="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition">
             <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
 
         <div class="space-y-4 text-xs text-slate-300">
           <p class="leading-relaxed">
-            Connect a free cloud database (like <a href="https://supabase.com/" target="_blank" class="text-sky-400 underline font-semibold">Supabase</a>) so any changes—including adding titles, fetching metadata, or marking a movie as <strong>Watched</strong> on your phone—sync across all devices in real time.
+            Connect a free cloud database (like <a href="https://supabase.com/" target="_blank" rel="noopener noreferrer" class="text-sky-400 underline font-semibold">Supabase</a>) so any changes—including adding titles, fetching metadata, or marking a movie as <strong>Watched</strong> on your phone—sync across all devices in real time.
           </p>
 
           <div class="p-3.5 rounded-xl bg-cineDark-900 border border-slate-800 space-y-3">
@@ -1210,29 +1210,55 @@
     }
 
     function openCloudModal() {
-      elements.cloudModal.classList.remove('hidden');
-      setTimeout(() => elements.cloudModal.classList.remove('opacity-0'), 10);
+      const modal = document.getElementById('cloudModal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+      }
     }
+    window.openCloudModal = openCloudModal;
 
     function closeCloudModal() {
-      elements.cloudModal.classList.add('opacity-0');
-      setTimeout(() => elements.cloudModal.classList.add('hidden'), 200);
+      const modal = document.getElementById('cloudModal');
+      if (modal) {
+        modal.classList.add('hidden');
+      }
     }
+    window.closeCloudModal = closeCloudModal;
+
+    function openEnrichModal() {
+      const modal = document.getElementById('enrichModal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.remove('opacity-0');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+    window.openEnrichModal = openEnrichModal;
+
+    function closeEnrichModal() {
+      const modal = document.getElementById('enrichModal');
+      if (modal) {
+        modal.classList.add('opacity-0');
+        setTimeout(() => modal.classList.add('hidden'), 150);
+      }
+    }
+    window.closeEnrichModal = closeEnrichModal;
 
     function handleSaveCloudConfig() {
-      const url = elements.supabaseUrlInput.value.trim();
-      const key = elements.supabaseKeyInput.value.trim();
-      const table = elements.supabaseTableInput.value.trim() || 'movies';
+      const url = elements.supabaseUrlInput ? elements.supabaseUrlInput.value.trim() : '';
+      const key = elements.supabaseKeyInput ? elements.supabaseKeyInput.value.trim() : '';
+      const table = elements.supabaseTableInput ? elements.supabaseTableInput.value.trim() : 'movies';
 
       if (!url || !key) {
-        showToast("Please provide both URL and API Key.");
+        showToast("Please enter both Supabase URL and Key.");
         return;
       }
 
-      cloudConfig = { url, key, table };
+      cloudConfig = { url, key, table: table || 'movies' };
       localStorage.setItem('discroulette_cloud_config', JSON.stringify(cloudConfig));
       updateCloudUIStatus(true);
-      showToast("Cloud credentials saved. Testing connection...");
+      showToast("Cloud configuration saved! Testing connection...");
       syncFromCloud(false);
       closeCloudModal();
     }
@@ -1242,8 +1268,9 @@
       cloudConfig = { url: '', key: '', table: 'movies' };
       if (elements.supabaseUrlInput) elements.supabaseUrlInput.value = '';
       if (elements.supabaseKeyInput) elements.supabaseKeyInput.value = '';
+      if (elements.supabaseTableInput) elements.supabaseTableInput.value = 'movies';
       updateCloudUIStatus(false);
-      showToast("Cloud sync disconnected.");
+      showToast("Disconnected from cloud database.");
       closeCloudModal();
     }
 
