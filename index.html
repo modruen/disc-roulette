@@ -641,6 +641,40 @@
           </button>
         </div>
 
+        <div class="space-y-4 text-xs text-slate-300">
+          <p class="leading-relaxed">
+            Enter your free <a href="https://themoviedb.org" target="_blank" class="text-indigo-400 underline font-semibold">The Movie Database (TMDb)</a> API Key or Access Token to automatically look up missing Directors, Genres, Studios, Release Years, and Poster Art across your entire library.
+          </p>
+
+          <div class="p-3.5 rounded-xl bg-cineDark-900 border border-slate-800 space-y-2">
+            <label class="block font-semibold uppercase tracking-wider text-slate-400 text-[11px]">TMDb API Read Access Token or v3 API Key</label>
+            <input type="password" id="tmdbApiKeyInput" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..." class="w-full bg-cineDark-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-indigo-500">
+            <p class="text-[10px] text-slate-500">Saved securely in your browser's local memory. Never sent to any external server besides TMDb directly.</p>
+          </div>
+
+          <div id="enrichProgressBox" class="hidden p-3.5 rounded-xl bg-indigo-950/40 border border-indigo-800/40 space-y-2">
+            <div class="flex items-center justify-between text-xs font-semibold text-indigo-200">
+              <span id="enrichStatusText">Enriching titles...</span>
+              <span id="enrichPercentText" class="font-mono">0%</span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+              <div id="enrichProgressBar" class="bg-gradient-to-r from-indigo-500 to-cineGold-400 h-full w-0 transition-all duration-200"></div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+            <button id="btnCancelEnrich" type="button" class="px-4 py-2 rounded-xl bg-cineDark-800 hover:bg-cineDark-700 text-slate-300 text-xs font-semibold border border-slate-700 transition">
+              Close
+            </button>
+            <button id="btnStartBatchEnrich" type="button" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-md shadow-indigo-600/30 flex items-center gap-1.5">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              <span>Enrich All Missing Movies</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal: Cloud Database Sync Settings -->
     <div id="cloudModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-200">
       <div class="glass-panel border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl overflow-y-auto max-h-[90vh]">
@@ -1211,15 +1245,6 @@
       updateCloudUIStatus(false);
       showToast("Cloud sync disconnected.");
       closeCloudModal();
-    }
-        } catch (e) {
-          console.error("Failed to parse saved collection:", e);
-          loadEmbeddedCollection();
-        }
-      } else {
-        // Automatically load the embedded collection on any new device/phone!
-        loadEmbeddedCollection();
-      }
     }
 
     function loadEmbeddedCollection() {
@@ -1999,6 +2024,17 @@
           if (found) openEditMovieModal(found);
         });
       });
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    /* =====================================================================
+       EVENT LISTENERS SETUP
+       ===================================================================== */
+    function setupEventListeners() {
+      const on = (el, event, handler) => {
+        if (el) el.addEventListener(event, handler);
+      };
 
       // Cloud Database Sync Listeners
       on(elements.btnOpenCloudModal, 'click', openCloudModal);
