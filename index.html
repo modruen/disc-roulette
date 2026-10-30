@@ -710,6 +710,15 @@
             </div>
           </div>
 
+          <!-- Live Diagnostic Box -->
+          <div id="cloudDiagnosticBox" class="hidden p-3.5 rounded-xl bg-cineDark-950 border border-slate-800 space-y-2 font-mono text-[11px]">
+            <div class="flex items-center justify-between text-slate-400">
+              <span class="font-bold text-sky-400 uppercase tracking-wider">Connection Diagnostics</span>
+              <button type="button" onclick="document.getElementById('cloudDiagnosticBox').classList.add('hidden')" class="text-slate-500 hover:text-slate-300">Dismiss</button>
+            </div>
+            <pre id="cloudDiagnosticLog" class="text-slate-300 whitespace-pre-wrap max-h-36 overflow-y-auto p-2 bg-cineDark-900 rounded border border-slate-800/80">Running test...</pre>
+          </div>
+
           <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800">
             <div class="flex items-center gap-2">
               <button id="btnPushToCloud" type="button" class="px-3 py-1.5 rounded-lg bg-sky-950 hover:bg-sky-900 text-sky-300 border border-sky-700/50 text-xs font-semibold transition" title="Upload local movies to the cloud database">
@@ -717,6 +726,9 @@
               </button>
               <button id="btnPullFromCloud" type="button" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition" title="Fetch latest movies from cloud">
                 <i data-lucide="download-cloud" class="w-3.5 h-3.5 inline mr-1"></i> Pull From Cloud
+              </button>
+              <button id="btnTestCloud" type="button" onclick="runCloudDiagnostics()" class="px-3 py-1.5 rounded-lg bg-indigo-950/60 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/50 text-xs font-semibold transition" title="Test Supabase connection and display detailed error codes">
+                <i data-lucide="terminal" class="w-3.5 h-3.5 inline mr-1"></i> Test Connection
               </button>
             </div>
             <div class="flex items-center gap-2">
@@ -1104,6 +1116,65 @@
       };
     }
 
+    // Comprehensive diagnostic tester
+    async function runCloudDiagnostics() {
+      const logEl = document.getElementById('cloudDiagnosticLog');
+      const box = document.getElementById('cloudDiagnosticBox');
+      if (!box || !logEl) return;
+      box.classList.remove('hidden');
+
+      const urlInput = (elements.supabaseUrlInput ? elements.supabaseUrlInput.value : cloudConfig.url).trim().replace(/\/+$/, '');
+      const keyInput = (elements.supabaseKeyInput ? elements.supabaseKeyInput.value : cloudConfig.key).trim();
+      const tableInput = (elements.supabaseTableInput ? elements.supabaseTableInput.value : cloudConfig.table).trim() || 'movies';
+
+      logEl.textContent = `[1/3] Testing URL formatting...\nTarget: ${urlInput}\nTable: ${tableInput}\n\n`;
+
+      if (!urlInput.startsWith('https://') || !urlInput.includes('.supabase.co')) {
+        logEl.textContent += `❌ WARNING: Project URL typically looks like:\n   https://<project-ref>.supabase.co\n   Your input: "${urlInput}"\n\n`;
+      } else {
+        logEl.textContent += `✓ URL format valid\n\n`;
+      }
+
+      if (!keyInput || keyInput.length < 30) {
+        logEl.textContent += `❌ Key appears invalid or too short (${keyInput.length} chars).\nMake sure to copy the entire "anon" / "public" JWT key from Supabase Settings > API.\n`;
+        return;
+      }
+
+      logEl.textContent += `[2/3] Sending query to ${tableInput} table...\n`;
+
+      try {
+        const testEndpoint = `${urlInput}/rest/v1/${tableInput}?select=count&limit=1`;
+        const res = await fetch(testEndpoint, {
+          method: 'GET',
+          headers: {
+            'apikey': keyInput,
+            'Authorization': `Bearer ${keyInput}`,
+            'Range-Unit': 'items',
+            'Prefer': 'count=exact'
+          }
+        });
+
+        const status = res.status;
+        const text = await res.text();
+
+        logEl.textContent += `HTTP Response: ${status} ${res.statusText}\n`;
+
+        if (res.ok) {
+          logEl.textContent += `\n🎉 SUCCESS! Table "${tableInput}" is accessible and reachable.\nResponse body: ${text || '[]'}\n\nYou can now click "Push Local to Cloud" to upload your titles!`;
+        } else {
+          logEl.textContent += `\n❌ Supabase Error Details:\n${text}\n\n`;
+          if (status === 404 || text.includes('relation') || text.includes('PGRST205')) {
+            logEl.textContent += `👉 CAUSE: The table "${tableInput}" does not exist in Supabase.\nFIX: In Supabase, open "SQL Editor", paste the table creation script, and click Run.`;
+          } else if (status === 401 || status === 403 || text.includes('JWT') || text.includes('permission denied')) {
+            logEl.textContent += `👉 CAUSE: Authentication or Row Level Security (RLS) issue.\nFIX: Run this command in Supabase SQL Editor:\n\ncreate policy "Allow all" on ${tableInput} for all using (true) with check (true);`;
+          }
+        }
+      } catch (networkErr) {
+        logEl.textContent += `\n❌ Network Connection Error: ${networkErr.message}\nCheck your internet connection or check if an adblocker/browser shield is blocking requests to supabase.co.`;
+      }
+    }
+    window.runCloudDiagnostics = runCloudDiagnostics;
+
     // Pull movies from Cloud database
     async function syncFromCloud(silent = false) {
       if (!isCloudConfigured()) return;
@@ -1115,7 +1186,10 @@
           headers: getSupabaseHeaders()
         });
 
-        if (!res.ok) throw new Error(`Cloud fetch failed (${res.status})`);
+        if (!res.ok) {
+          const errBody = await res.text();
+          throw new Error(`HTTP ${res.status}: ${errBody || res.statusText}`);
+        }
         const data = await res.json();
 
         if (Array.isArray(data) && data.length > 0) {
@@ -1144,7 +1218,90 @@
       } catch (err) {
         console.error("Cloud pull error:", err);
         updateCloudUIStatus(false);
-        if (!silent) showToast("Could not sync from cloud. Check credentials.");
+        if (!silent) showToast(`Sync error: ${err.message}`);
+      }
+    }
+
+    // Push local movies to Cloud database (Upsert)
+    async function pushToCloud() {
+      if (!isCloudConfigured()) {
+        showToast("Please enter Supabase URL & Key first.");
+        return;
+      }
+      if (collectionData.length === 0) {
+        showToast("No movies to push!");
+        return;
+      }
+
+      try {
+        const cleanUrl = cloudConfig.url.trim().replace(/\/+$/, '');
+        const endpoint = `${cleanUrl}/rest/v1/${cloudConfig.table.trim()}`;
+
+        // Supabase upsert using resolution
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            ...getSupabaseHeaders(),
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify(collectionData)
+        });
+
+        if (!res.ok) {
+          const errBody = await res.text();
+          throw new Error(`HTTP ${res.status}: ${errBody || res.statusText}`);
+        }
+        updateCloudUIStatus(true);
+        showToast(`Successfully uploaded ${collectionData.length} movies to cloud!`);
+      } catch (err) {
+        console.error("Cloud push error:", err);
+        showToast(`Failed to upload: ${err.message}`);
+      }
+    }
+
+    // Push local movies to Cloud database (Upsert)
+    async function pushToCloud() {
+      if (!isCloudConfigured()) {
+        showToast("Please enter Supabase URL & Key first.");
+        return;
+      }
+      if (collectionData.length === 0) {
+        showToast("No movies to push!");
+        return;
+      }
+
+      try {
+        let cleanUrl = cloudConfig.url.trim().replace(/\/+$/, '');
+        if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+          cleanUrl = 'https://' + cleanUrl;
+        }
+        const tableName = (cloudConfig.table || 'movies').trim();
+        const endpoint = `${cleanUrl}/rest/v1/${tableName}`;
+
+        // Supabase upsert using resolution
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            ...getSupabaseHeaders(),
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify(collectionData)
+        });
+
+        if (!res.ok) {
+          let errDetail = `${res.status} ${res.statusText}`;
+          try {
+            const errJson = await res.json();
+            if (errJson.message) errDetail += `: ${errJson.message}`;
+          } catch (_) {}
+          throw new Error(errDetail);
+        }
+
+        updateCloudUIStatus(true);
+        showToast(`Successfully uploaded ${collectionData.length} movies to cloud!`);
+      } catch (err) {
+        console.error("Cloud push error:", err);
+        showToast(`Cloud Push Error: ${err.message}`);
       }
     }
 
