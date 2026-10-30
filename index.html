@@ -1,0 +1,1964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Disc Roulette • Physical Media Movie Selector</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Outfit', 'sans-serif'],
+            cinematic: ['Cinzel', 'serif']
+          },
+          colors: {
+            cineGold: {
+              300: '#fde047',
+              400: '#facc15',
+              500: '#e5a93b',
+              600: '#d97706',
+              700: '#b45309'
+            },
+            cineDark: {
+              950: '#07090e',
+              900: '#0d1017',
+              850: '#131722',
+              800: '#1c2233',
+              700: '#2b344c'
+            }
+          },
+          animation: {
+            'glow-pulse': 'glowPulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'spin-slow': 'spin 8s linear infinite',
+            'shimmer': 'shimmer 2s linear infinite'
+          },
+          keyframes: {
+            glowPulse: {
+              '0%, 100%': { opacity: '0.4', transform: 'scale(1)' },
+              '50%': { opacity: '0.8', transform: 'scale(1.03)' }
+            },
+            shimmer: {
+              '0%': { backgroundPosition: '-200% 0' },
+              '100%': { backgroundPosition: '200% 0' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0d1017;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #2b344c;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #e5a93b;
+    }
+
+    .glass-panel {
+      background: rgba(19, 23, 34, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .glass-gold {
+      background: linear-gradient(135deg, rgba(229, 169, 59, 0.12) 0%, rgba(19, 23, 34, 0.85) 100%);
+      border: 1px solid rgba(229, 169, 59, 0.28);
+    }
+
+    .film-strip {
+      background-image: repeating-linear-gradient(
+        to right,
+        transparent,
+        transparent 14px,
+        rgba(255, 255, 255, 0.08) 14px,
+        rgba(255, 255, 255, 0.08) 18px
+      );
+    }
+  </style>
+</head>
+
+<body class="bg-cineDark-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-cineGold-500 selection:text-black">
+  <!-- Subtle ambient theater background light -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+    <div class="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-cineGold-500/10 blur-[140px] rounded-full animate-glow-pulse"></div>
+    <div class="absolute -bottom-40 right-10 w-[500px] h-[400px] bg-indigo-600/10 blur-[160px] rounded-full"></div>
+  </div>
+
+  <div class="relative z-10 flex-1 flex flex-col">
+    <!-- Navigation Header -->
+    <header class="border-b border-slate-800/80 glass-panel sticky top-0 z-40 px-4 lg:px-8 py-3.5">
+      <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        <!-- Logo -->
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-cineGold-600 to-amber-300 flex items-center justify-center shadow-lg shadow-cineGold-600/25 ring-1 ring-amber-400/30">
+            <i data-lucide="disc-3" class="w-6 h-6 text-cineDark-950 animate-spin-slow"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-display font-extrabold text-xl tracking-tight text-white">DISC <span class="text-cineGold-400 font-cinematic font-normal">ROULETTE</span></span>
+              <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-cineGold-400">Blu-ray.com Edition</span>
+            </div>
+            <p class="text-xs text-slate-400 hidden sm:block">Random Physical Media Selector</p>
+          </div>
+        </div>
+
+        <!-- Header Actions -->
+        <div class="flex items-center gap-2 sm:gap-3">
+          <!-- Total Loaded Count Badge -->
+          <div id="statTotalBadge" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cineDark-850 border border-slate-700/60 text-xs text-slate-300">
+            <i data-lucide="film" class="w-3.5 h-3.5 text-cineGold-400"></i>
+            <span id="statTotalCount">0</span> Titles Loaded
+          </div>
+
+          <!-- Auto-Enrich Metadata Button -->
+          <button id="btnOpenEnrichModal" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-950 to-cineDark-850 hover:from-indigo-900 hover:to-cineDark-800 border border-indigo-500/40 text-xs font-semibold text-indigo-300 transition shadow-sm">
+            <i data-lucide="sparkles" class="w-4 h-4 text-indigo-400"></i>
+            <span class="hidden md:inline">Auto-Enrich Data</span>
+          </button>
+
+          <!-- History / Drawer Button -->
+          <button id="btnToggleHistory" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cineDark-850 hover:bg-cineDark-800 border border-slate-700/60 text-xs font-medium text-slate-200 transition-colors">
+            <i data-lucide="history" class="w-4 h-4 text-cineGold-400"></i>
+            <span class="hidden md:inline">Session History</span>
+            <span id="historyBadge" class="ml-1 w-5 h-5 rounded-full bg-cineGold-500 text-cineDark-950 text-[10px] font-bold flex items-center justify-center">0</span>
+          </button>
+
+          <!-- Add Movie Button -->
+          <button id="btnOpenAddMovie" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cineDark-850 hover:bg-cineDark-800 border border-slate-700/60 text-xs font-semibold text-cineGold-300 transition">
+            <i data-lucide="plus-circle" class="w-4 h-4 text-cineGold-400"></i>
+            <span class="hidden sm:inline">Add Title</span>
+          </button>
+
+          <!-- Upload / Source Dropdown or Button -->
+          <button id="btnOpenUploader" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-cineGold-500 hover:bg-cineGold-400 text-cineDark-950 font-semibold text-xs transition shadow-md shadow-cineGold-500/20">
+            <i data-lucide="file-up" class="w-4 h-4"></i>
+            <span>Import CSV</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1">
+      
+      <!-- Uploader / Drop Zone (Can be collapsed or displayed if empty) -->
+      <section id="uploaderSection" class="glass-panel rounded-2xl p-6 transition-all duration-300 border border-slate-800">
+        <div class="flex flex-col lg:flex-row items-center justify-between gap-6">
+          <div class="space-y-1.5 text-center lg:text-left">
+            <div class="flex items-center justify-center lg:justify-start gap-2">
+              <i data-lucide="sparkles" class="w-5 h-5 text-cineGold-400"></i>
+              <h2 class="text-lg font-bold text-white tracking-tight">Load Your Blu-ray.com Collection</h2>
+            </div>
+            <p class="text-sm text-slate-400 max-w-xl">
+              Export your collection from Blu-ray.com as a CSV file, then drag and drop it here. Don't have your file yet? Try our curated demo catalog!
+            </p>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-center gap-3 w-full lg:w-auto">
+            <!-- Hidden file input -->
+            <input type="file" id="csvFileInput" accept=".csv,text/csv,text/plain" class="hidden">
+            
+            <button id="btnTriggerUpload" class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cineDark-800 hover:bg-cineDark-700 border border-slate-700 text-slate-200 text-sm font-semibold transition hover:border-cineGold-500/50">
+              <i data-lucide="upload" class="w-4 h-4 text-cineGold-400"></i>
+              <span>Select CSV File</span>
+            </button>
+
+            <button id="btnLoadSample" class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-cineGold-500/10 hover:from-amber-500/30 hover:to-cineGold-500/20 border border-cineGold-500/40 text-cineGold-300 text-sm font-semibold transition">
+              <i data-lucide="play-circle" class="w-4 h-4 text-cineGold-400"></i>
+              <span>Load Sample Collection</span>
+            </button>
+            
+            <button id="btnExportCSV" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cineDark-800 hover:bg-cineDark-700 border border-slate-700 text-slate-200 text-sm font-semibold transition hover:border-slate-600">
+              <i data-lucide="download" class="w-4 h-4 text-cineGold-400"></i>
+              <span class="hidden sm:inline">Export CSV</span>
+            </button>
+
+            <button id="btnClearData" class="hidden items-center gap-1.5 px-3 py-2.5 rounded-xl text-rose-400 hover:bg-rose-950/30 hover:border-rose-900 border border-transparent text-sm transition">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+              <span class="hidden sm:inline">Reset</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Drag Over Drop Area -->
+        <div id="dropZone" class="mt-4 border-2 border-dashed border-slate-700/80 hover:border-cineGold-500/60 rounded-xl p-5 text-center transition-all bg-cineDark-900/50 cursor-pointer">
+          <div class="flex flex-col items-center justify-center gap-1.5">
+            <i data-lucide="hard-drive-download" class="w-6 h-6 text-slate-500 group-hover:text-cineGold-400"></i>
+            <p class="text-xs text-slate-400">Drag & drop your <span class="text-slate-200 font-mono">.csv</span> file anywhere inside this box</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Active Selection & Generator Stage -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        <!-- Left: Filter & Configuration Panel (4 Cols) -->
+        <div class="lg:col-span-4 glass-panel rounded-2xl p-5 space-y-5 border border-slate-800">
+          <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="sliders-horizontal" class="w-4 h-4 text-cineGold-400"></i>
+              <h3 class="font-display font-bold text-slate-100 text-base">Filter Vault</h3>
+            </div>
+            <button id="btnResetFilters" class="text-xs text-slate-400 hover:text-cineGold-400 flex items-center gap-1 transition">
+              <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+              Reset
+            </button>
+          </div>
+
+          <!-- Live Counter Match Banner -->
+          <div class="bg-cineDark-900 rounded-xl p-3 border border-slate-800/90 flex items-center justify-between">
+            <div class="text-xs text-slate-400">Pool Available:</div>
+            <div class="flex items-baseline gap-1.5">
+              <span id="filteredCount" class="text-lg font-extrabold text-cineGold-400 font-display">0</span>
+              <span class="text-xs text-slate-500">/</span>
+              <span id="totalCollectionCount" class="text-xs font-medium text-slate-400">0</span>
+              <span class="text-xs text-slate-400">titles</span>
+            </div>
+          </div>
+
+          <!-- Filter Controls -->
+          <div class="space-y-4 text-sm">
+            
+            <!-- Quick Search Input -->
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Quick Search</label>
+              <div class="relative">
+                <i data-lucide="search" class="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                <input type="text" id="filterSearch" placeholder="Search title, director, studio..." class="w-full bg-cineDark-900 border border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cineGold-500 transition">
+              </div>
+            </div>
+
+            <!-- Watched Status Filter -->
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Watch Status</label>
+              <select id="filterWatched" class="w-full bg-cineDark-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cineGold-500 transition">
+                <option value="ALL">All Movies (Watched & Unwatched)</option>
+                <option value="UNWATCHED" selected>Unwatched Only (Watchlist)</option>
+                <option value="WATCHED">Already Watched</option>
+              </select>
+            </div>
+
+            <!-- Decade Filter -->
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Decade / Era</label>
+              <select id="filterDecade" class="w-full bg-cineDark-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cineGold-500 transition">
+                <option value="ALL">Any Era</option>
+                <option value="2020s">2020s (2020 - Present)</option>
+                <option value="2010s">2010s (2010 - 2019)</option>
+                <option value="2000s">2000s (2000 - 2009)</option>
+                <option value="1990s">1990s (1990 - 1999)</option>
+                <option value="1980s">1980s (1980 - 1989)</option>
+                <option value="1970s">1970s (1970 - 1979)</option>
+                <option value="1960s">1960s (1960 - 1969)</option>
+                <option value="PRE1960">Pre-1960s Classic</option>
+              </select>
+            </div>
+
+            <!-- Genre Filter -->
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Genre</label>
+              <select id="filterGenre" class="w-full bg-cineDark-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cineGold-500 transition">
+                <option value="ALL">All Genres</option>
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+
+            <!-- Director Filter -->
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Director</label>
+              <select id="filterDirector" class="w-full bg-cineDark-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cineGold-500 transition">
+                <option value="ALL">All Directors</option>
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+
+            <!-- Movie Studio Filter -->
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Movie Studio</label>
+              <select id="filterStudio" class="w-full bg-cineDark-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cineGold-500 transition">
+                <option value="ALL">All Studios</option>
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+
+            <!-- Production Country Filter -->
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Production Country</label>
+              <select id="filterCountry" class="w-full bg-cineDark-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cineGold-500 transition">
+                <option value="ALL">All Countries</option>
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+
+          </div>
+
+          <!-- Bottom trigger to toggle full table -->
+          <div class="pt-2 border-t border-slate-800">
+            <button id="btnToggleCatalogView" class="w-full py-2 px-3 rounded-xl bg-cineDark-900 hover:bg-cineDark-800 text-xs font-medium text-slate-300 flex items-center justify-center gap-2 border border-slate-800 transition">
+              <i data-lucide="table" class="w-3.5 h-3.5 text-cineGold-400"></i>
+              <span id="txtToggleCatalog">Browse Filtered List</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Roulette & Pick Presentation Stage (8 Cols) -->
+        <div class="lg:col-span-8 flex flex-col gap-6">
+
+          <!-- Main Reel & Pick Button Card -->
+          <div class="glass-panel rounded-2xl p-6 sm:p-8 relative overflow-hidden border border-slate-800 text-center flex flex-col items-center justify-center">
+            
+            <!-- Cinema Marquee Ambient Accent -->
+            <div class="w-full max-w-md h-1 bg-gradient-to-r from-transparent via-cineGold-400/40 to-transparent mb-6"></div>
+
+            <div class="max-w-xl mx-auto space-y-3">
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-cineGold-400 text-xs font-semibold tracking-wider uppercase">
+                <i data-lucide="clapperboard" class="w-3.5 h-3.5"></i> Tonight's Feature
+              </span>
+              <h1 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight font-display">
+                Can't Decide What to Watch?
+              </h1>
+              <p class="text-slate-400 text-xs sm:text-sm">
+                Lock your filters, spin the reel, and pull a guaranteed gem directly from your physical shelf.
+              </p>
+            </div>
+
+            <!-- Rolling Ticker Box -->
+            <div class="w-full my-6 max-w-xl">
+              <div id="rollerBox" class="h-20 bg-cineDark-900/90 border-2 border-slate-700/80 rounded-2xl flex items-center justify-center px-4 relative overflow-hidden shadow-inner film-strip">
+                <div id="rollerText" class="text-base sm:text-lg font-bold text-slate-300 truncate max-w-full tracking-wide">
+                  Ready to roll...
+                </div>
+                <div class="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-cineDark-900 to-transparent pointer-events-none"></div>
+                <div class="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-cineDark-900 to-transparent pointer-events-none"></div>
+              </div>
+            </div>
+
+            <!-- Big Action Button -->
+            <div class="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md">
+              <button id="btnPickMovie" class="w-full group relative inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-cineGold-500 to-amber-400 hover:from-cineGold-400 hover:to-amber-300 text-cineDark-950 font-display font-extrabold text-lg sm:text-xl shadow-xl shadow-cineGold-500/20 transition-all transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none">
+                <i data-lucide="dices" class="w-6 h-6 transition-transform group-hover:rotate-45"></i>
+                <span>PICK A MOVIE</span>
+              </button>
+            </div>
+
+          </div>
+
+          <!-- Featured Result Movie Card (Hidden until picked) -->
+          <div id="selectedMovieCard" class="hidden glass-gold rounded-2xl p-6 sm:p-8 transition-all duration-500 relative">
+            <div class="absolute top-4 right-4 flex items-center gap-2">
+              <button id="btnToggleWatchedPick" title="Toggle Watched" class="px-3 py-1.5 rounded-lg bg-cineDark-850/80 hover:bg-cineDark-800 text-xs font-semibold text-slate-300 hover:text-cineGold-400 transition border border-slate-700/60 flex items-center gap-1.5">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                <span id="btnToggleWatchedPickText">Mark Watched</span>
+              </button>
+              <button id="btnEditPick" title="Edit this movie's details" class="p-2 rounded-lg bg-cineDark-850/80 hover:bg-cineDark-800 text-slate-300 hover:text-cineGold-400 transition border border-slate-700/60">
+                <i data-lucide="pencil" class="w-4 h-4"></i>
+              </button>
+              <button id="btnSharePick" title="Copy movie details" class="p-2 rounded-lg bg-cineDark-850/80 hover:bg-cineDark-800 text-slate-300 hover:text-cineGold-400 transition border border-slate-700/60">
+                <i data-lucide="copy" class="w-4 h-4"></i>
+              </button>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-6 items-start">
+              
+              <!-- Movie Reel Emblem / Poster Container -->
+              <div class="w-24 h-36 sm:w-32 sm:h-48 rounded-xl bg-cineDark-900 border border-cineGold-500/40 flex flex-col items-center justify-center text-center shrink-0 shadow-lg relative overflow-hidden group">
+                <img id="cardPoster" src="" alt="Poster" class="w-full h-full object-cover hidden rounded-xl">
+                <div id="cardPosterFallback" class="flex flex-col items-center justify-center p-3">
+                  <div class="absolute -right-6 -bottom-6 w-16 h-16 rounded-full border-4 border-cineGold-500/20"></div>
+                  <i data-lucide="clapperboard" class="w-10 h-10 text-cineGold-400 mb-2"></i>
+                  <span id="cardWatchedStatusBadge" class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 bg-slate-800/80 border border-slate-700 px-2 py-0.5 rounded">Unwatched</span>
+                </div>
+              </div>
+
+              <!-- Movie Metadata -->
+              <div class="flex-1 space-y-3 min-w-0">
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                  <span id="cardYear" class="px-2.5 py-0.5 rounded-full bg-cineGold-500/20 text-cineGold-300 font-semibold border border-cineGold-500/30">Year</span>
+                  <span id="cardCountry" class="px-2.5 py-0.5 rounded-full bg-slate-800/90 text-slate-300 border border-slate-700">Country</span>
+                  <div id="cardGenresList" class="flex flex-wrap items-center gap-1.5"></div>
+                </div>
+
+                <h2 id="cardTitle" class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-display leading-tight break-words">
+                  Movie Title
+                </h2>
+
+                <p id="cardOverview" class="text-xs text-slate-400 line-clamp-3 leading-relaxed hidden"></p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2 text-xs border-y border-slate-800/80">
+                  <div>
+                    <span class="text-slate-500 block uppercase tracking-wider font-semibold">Director(s)</span>
+                    <span id="cardDirector" class="font-medium text-slate-100 text-sm">--</span>
+                  </div>
+                  <div>
+                    <span class="text-slate-500 block uppercase tracking-wider font-semibold">Movie Studio</span>
+                    <span id="cardStudio" class="font-medium text-slate-100 text-sm">--</span>
+                  </div>
+                </div>
+
+                <!-- Web Verification & Database Links -->
+                <div class="flex flex-wrap items-center gap-2.5 pt-2">
+                  <button id="btnFetchSingleMovie" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition" title="Auto-enrich this movie from TMDb">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                    <span>Fetch Details</span>
+                  </button>
+                  <a id="linkLetterboxd" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition">
+                    <i data-lucide="film" class="w-3.5 h-3.5"></i>
+                    <span>Letterboxd</span>
+                  </a>
+                  <a id="linkImdb" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-semibold transition">
+                    <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                    <span>IMDb</span>
+                  </a>
+                  <button id="btnPickAgain" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cineDark-850 hover:bg-cineDark-800 text-slate-200 border border-slate-700 text-xs font-semibold ml-auto transition">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-cineGold-400"></i>
+                    <span>Pick Another</span>
+                  </button>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- Collapsible Full Catalog Table View -->
+      <section id="catalogSection" class="hidden glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 class="font-display font-bold text-lg text-white">Full Matching Catalog</h3>
+            <p class="text-xs text-slate-400">Showing movies that match your active criteria</p>
+          </div>
+          <div class="text-xs text-slate-400">
+            <span id="tableResultsCount" class="font-bold text-cineGold-400">0</span> matching items
+          </div>
+        </div>
+
+        <div class="overflow-x-auto border border-slate-800 rounded-xl">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-cineDark-900 uppercase font-semibold text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="px-4 py-3">Title</th>
+                <th class="px-4 py-3">Genre</th>
+                <th class="px-4 py-3">Director</th>
+                <th class="px-4 py-3">Movie Studio</th>
+                <th class="px-4 py-3">Year</th>
+                <th class="px-4 py-3">Country</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="catalogTableBody" class="divide-y divide-slate-800/80 bg-cineDark-950/40">
+              <!-- Populated via JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Slide-over Drawer: Session History -->
+    <div id="historyDrawer" class="fixed inset-y-0 right-0 max-w-sm w-full bg-cineDark-900 border-l border-slate-800 z-50 transform translate-x-full transition-transform duration-300 ease-in-out shadow-2xl flex flex-col">
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i data-lucide="history" class="w-5 h-5 text-cineGold-400"></i>
+          <h3 class="font-display font-bold text-base text-white">Session Picks</h3>
+        </div>
+        <button id="btnCloseHistory" class="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div id="historyList" class="flex-1 overflow-y-auto p-4 space-y-3">
+        <!-- History cards inserted dynamically -->
+        <p class="text-xs text-slate-500 text-center py-8">No movies picked yet this session.</p>
+      </div>
+
+      <div class="p-4 border-t border-slate-800">
+        <button id="btnClearHistory" class="w-full py-2 px-3 rounded-lg bg-cineDark-850 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 border border-slate-700/60 text-xs font-medium transition">
+          Clear History
+        </button>
+      </div>
+    </div>
+    <div id="drawerOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden transition-opacity"></div>
+
+    <!-- Modal: Add or Edit Movie Details -->
+    <div id="movieModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-200">
+      <div class="glass-panel border border-slate-700 rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl overflow-y-auto max-h-[90vh]">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="film" class="w-5 h-5 text-cineGold-400"></i>
+            <h3 id="movieModalTitle" class="font-display font-bold text-lg text-white">Add New Movie</h3>
+          </div>
+          <button id="btnCloseMovieModal" class="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <form id="movieForm" class="space-y-4 text-xs">
+          <input type="hidden" id="formMovieId">
+
+          <!-- Title -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block font-semibold uppercase tracking-wider text-slate-400">Movie Title *</label>
+              <button type="button" id="btnAutoFillForm" class="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition">
+                <i data-lucide="sparkles" class="w-3 h-3"></i> Auto-fill via TMDb
+              </button>
+            </div>
+            <input type="text" id="formTitle" required placeholder="e.g. Alien, Seven Samurai" class="w-full bg-cineDark-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- Director -->
+            <div>
+              <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Director(s) *</label>
+              <input type="text" id="formDirector" placeholder="e.g. Ridley Scott, Joel Coen, Ethan Coen" class="w-full bg-cineDark-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
+            </div>
+
+            <!-- Movie Studio -->
+            <div>
+              <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Movie Studio / Production Co.</label>
+              <input type="text" id="formStudio" placeholder="e.g. 20th Century Fox, Toho, Universal" class="w-full bg-cineDark-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- Year -->
+            <div>
+              <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Production / Release Year</label>
+              <input type="number" id="formYear" placeholder="e.g. 1979" min="1890" max="2099" class="w-full bg-cineDark-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
+            </div>
+
+            <!-- Genre -->
+            <div>
+              <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Genre(s)</label>
+              <input type="text" id="formGenre" placeholder="e.g. Horror, Sci-Fi, Mystery" class="w-full bg-cineDark-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
+            </div>
+          </div>
+
+          <!-- Production Country -->
+          <div>
+            <label class="block font-semibold uppercase tracking-wider text-slate-400 mb-1">Production Country / Countries</label>
+            <input type="text" id="formCountry" placeholder="e.g. United States, Japan, France" class="w-full bg-cineDark-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-cineGold-500">
+          </div>
+
+          <!-- Watched Toggle -->
+          <div class="p-3 rounded-xl bg-cineDark-900/60 border border-slate-800 flex items-center justify-between">
+            <div class="flex flex-col">
+              <span class="font-semibold text-slate-200">Watched</span>
+              <span class="text-[11px] text-slate-400">Have you watched this film?</span>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="formWatched" class="sr-only peer">
+              <div class="w-10 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cineGold-500"></div>
+            </label>
+          </div>
+
+          <!-- Form Buttons -->
+          <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+            <button type="button" id="btnDeleteMovie" class="hidden px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-950/40 text-xs font-semibold border border-rose-900/60 transition">
+              Delete Title
+            </button>
+            <div class="flex items-center gap-2 ml-auto">
+              <button type="button" id="btnCancelMovieModal" class="px-4 py-2 rounded-xl bg-cineDark-800 hover:bg-cineDark-700 text-slate-300 text-xs font-semibold border border-slate-700 transition">
+                Cancel
+              </button>
+              <button type="submit" class="px-5 py-2 rounded-xl bg-cineGold-500 hover:bg-cineGold-400 text-cineDark-950 text-xs font-bold transition shadow-md shadow-cineGold-500/20">
+                Save Title
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- In-App Custom Confirmation Modal (No window.confirm) -->
+    <div id="confirmModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm hidden opacity-0 transition-opacity duration-200">
+      <div class="glass-panel border border-slate-700 rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl text-center">
+        <div class="w-12 h-12 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 mx-auto flex items-center justify-center">
+          <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h4 class="text-base font-bold text-white">Reset Collection?</h4>
+          <p class="text-xs text-slate-400 mt-1">This will clear your imported collection and remove cached data from your browser.</p>
+        </div>
+        <div class="flex items-center gap-3 pt-2">
+          <button id="btnCancelReset" class="flex-1 py-2 rounded-xl bg-cineDark-800 hover:bg-cineDark-700 text-slate-300 text-xs font-semibold border border-slate-700 transition">
+            Cancel
+          </button>
+          <button id="btnConfirmReset" class="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-lg shadow-rose-600/30 transition">
+            Yes, Reset
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Auto-Enrichment Batch Engine -->
+    <div id="enrichModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-200">
+      <div class="glass-panel border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl overflow-y-auto max-h-[90vh]">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="sparkles" class="w-5 h-5 text-indigo-400"></i>
+            <h3 class="font-display font-bold text-lg text-white">Auto-Enrich Collection Metadata</h3>
+          </div>
+          <button id="btnCloseEnrichModal" class="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <div class="space-y-4 text-xs text-slate-300">
+          <p class="leading-relaxed">
+            Blu-ray.com exports only list the title and retail disc distributor. Use <a href="https://www.themoviedb.org/" target="_blank" class="text-indigo-400 underline font-semibold">The Movie Database (TMDb)</a> to automatically fill in the <strong>Director(s)</strong>, <strong>Original Production Year</strong>, <strong>Movie Studios</strong>, <strong>Countries</strong>, and <strong>Poster Art</strong>!
+          </p>
+
+          <div class="p-3.5 rounded-xl bg-cineDark-900 border border-slate-800 space-y-2">
+            <label class="block font-semibold uppercase tracking-wider text-slate-400 text-[11px]">TMDb API Read Access Token or v3 API Key</label>
+            <input type="text" id="tmdbApiKeyInput" placeholder="Paste your free TMDb API key or token here..." class="w-full bg-cineDark-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-indigo-500">
+            <p class="text-[10px] text-slate-500">
+              Need a key? Create a free account at <a href="https://www.themoviedb.org/settings/api" target="_blank" class="text-indigo-400 underline">themoviedb.org/settings/api</a>. It takes 1 minute and is 100% free.
+            </p>
+          </div>
+
+          <!-- Progress Bar (shown when running) -->
+          <div id="enrichProgressBox" class="hidden space-y-2 p-3 bg-cineDark-900/80 rounded-xl border border-indigo-900/40">
+            <div class="flex justify-between text-xs font-semibold">
+              <span id="enrichStatusText" class="text-indigo-300">Scanning movies...</span>
+              <span id="enrichPercentText" class="text-slate-400">0%</span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+              <div id="enrichProgressBar" class="bg-gradient-to-r from-indigo-500 to-cineGold-500 h-2.5 rounded-full transition-all duration-200" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
+            <button id="btnCancelEnrich" type="button" class="px-4 py-2 rounded-xl bg-cineDark-800 hover:bg-cineDark-700 text-slate-300 text-xs font-semibold border border-slate-700 transition">
+              Close
+            </button>
+            <button id="btnStartBatchEnrich" type="button" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-md shadow-indigo-600/30 flex items-center gap-1.5">
+              <i data-lucide="play" class="w-3.5 h-3.5"></i>
+              <span>Enrich All Missing Movies</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification Element -->
+    <div id="toastBox" class="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-cineDark-850 border border-cineGold-500/50 text-white px-4 py-3 rounded-xl shadow-2xl transform translate-y-24 opacity-0 transition-all duration-300 text-xs font-medium">
+      <i data-lucide="check-circle" class="w-4 h-4 text-cineGold-400"></i>
+      <span id="toastMsg">Notification message</span>
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800/60 glass-panel py-4 px-6 text-center text-xs text-slate-500">
+      <p>Disc Roulette &bull; Works seamlessly with <span class="text-slate-400 font-medium">Blu-ray.com</span> CSV exports. All data is processed locally in your browser.</p>
+    </footer>
+  </div>
+
+  <script>
+    /* =====================================================================
+       DISC ROULETTE JAVASCRIPT ENGINE (STREAMLINED MOVIE SCHEMA + GENRES)
+       - Columns: Title, Director, Movie Studio, Production Country, Year, Watched, Genres
+       ===================================================================== */
+
+    // Sample streamlined database with genres
+    const SAMPLE_CSV = `Title,Director,Movie Studio,Production Country,Year,Watched,Genres
+"1,000 Convicts and a Woman",Ray Austin,Kino Lorber,United Kingdom,1971,0,"Drama, Crime"
+"Alien",Ridley Scott,20th Century Fox,United States,1979,1,"Science Fiction, Horror"
+"The Thing",John Carpenter,Universal Pictures,United States,1982,1,"Horror, Mystery, Science Fiction"
+"Seven Samurai",Akira Kurosawa,Toho,Japan,1954,1,"Action, Drama"
+"Blade Runner 2049",Denis Villeneuve,Warner Bros. Pictures,United States,2017,1,"Science Fiction, Mystery"
+"Deep Red (Profondo Rosso)",Dario Argento,Seda Spettacoli,Italy,1975,0,"Mystery, Thriller, Horror"
+"Halloween",John Carpenter,Compass International Pictures,United States,1978,1,"Horror, Thriller"
+"Mulholland Drive",David Lynch,StudioCanal,United States,2001,0,"Thriller, Drama, Mystery"
+"Pulp Fiction",Quentin Tarantino,Miramax Films,United States,1994,1,"Thriller, Crime"
+"RoboCop",Paul Verhoeven,Orion Pictures,United States,1987,1,"Action, Thriller, Science Fiction"
+"Paris, Texas",Wim Wenders,Road Movies Filmproduktion,Germany,1984,0,"Drama"
+"Mad Max: Fury Road",George Miller,Warner Bros. Pictures,Australia,2015,1,"Action, Adventure, Science Fiction"
+"The Texas Chain Saw Massacre",Tobe Hooper,Vortex,United States,1974,0,"Horror"
+"Casablanca",Michael Curtiz,Warner Bros. Pictures,United States,1942,1,"Drama, Romance"
+"Possession",Andrzej Żuławski,Gaumont,France,1981,0,"Horror, Drama"`;
+
+    // State
+    let collectionData = [];
+    let filteredMovies = [];
+    let sessionHistory = [];
+    let currentSelectedMovie = null;
+    let isRolling = false;
+    let rollInterval = null;
+    let isEnrichingBatch = false;
+
+    // Elements mapped dynamically
+    let elements = {};
+
+    function cacheDOMElements() {
+      elements = {
+        csvFileInput: document.getElementById('csvFileInput'),
+        btnTriggerUpload: document.getElementById('btnTriggerUpload'),
+        btnOpenUploader: document.getElementById('btnOpenUploader'),
+        btnOpenAddMovie: document.getElementById('btnOpenAddMovie'),
+        btnOpenEnrichModal: document.getElementById('btnOpenEnrichModal'),
+        btnExportCSV: document.getElementById('btnExportCSV'),
+        dropZone: document.getElementById('dropZone'),
+        btnLoadSample: document.getElementById('btnLoadSample'),
+        btnClearData: document.getElementById('btnClearData'),
+        uploaderSection: document.getElementById('uploaderSection'),
+        statTotalCount: document.getElementById('statTotalCount'),
+        statTotalBadge: document.getElementById('statTotalBadge'),
+        totalCollectionCount: document.getElementById('totalCollectionCount'),
+        filteredCount: document.getElementById('filteredCount'),
+        filterSearch: document.getElementById('filterSearch'),
+        filterWatched: document.getElementById('filterWatched'),
+        filterDecade: document.getElementById('filterDecade'),
+        filterGenre: document.getElementById('filterGenre'),
+        filterDirector: document.getElementById('filterDirector'),
+        filterStudio: document.getElementById('filterStudio'),
+        filterCountry: document.getElementById('filterCountry'),
+        btnResetFilters: document.getElementById('btnResetFilters'),
+        btnPickMovie: document.getElementById('btnPickMovie'),
+        rollerBox: document.getElementById('rollerBox'),
+        rollerText: document.getElementById('rollerText'),
+        selectedMovieCard: document.getElementById('selectedMovieCard'),
+        cardTitle: document.getElementById('cardTitle'),
+        cardDirector: document.getElementById('cardDirector'),
+        cardStudio: document.getElementById('cardStudio'),
+        cardYear: document.getElementById('cardYear'),
+        cardCountry: document.getElementById('cardCountry'),
+        cardWatchedStatusBadge: document.getElementById('cardWatchedStatusBadge'),
+        cardPoster: document.getElementById('cardPoster'),
+        cardPosterFallback: document.getElementById('cardPosterFallback'),
+        cardOverview: document.getElementById('cardOverview'),
+        cardGenresList: document.getElementById('cardGenresList'),
+        btnFetchSingleMovie: document.getElementById('btnFetchSingleMovie'),
+        linkLetterboxd: document.getElementById('linkLetterboxd'),
+        linkImdb: document.getElementById('linkImdb'),
+        btnPickAgain: document.getElementById('btnPickAgain'),
+        btnToggleWatchedPick: document.getElementById('btnToggleWatchedPick'),
+        btnToggleWatchedPickText: document.getElementById('btnToggleWatchedPickText'),
+        btnEditPick: document.getElementById('btnEditPick'),
+        btnSharePick: document.getElementById('btnSharePick'),
+        btnToggleCatalogView: document.getElementById('btnToggleCatalogView'),
+        txtToggleCatalog: document.getElementById('txtToggleCatalog'),
+        catalogSection: document.getElementById('catalogSection'),
+        catalogTableBody: document.getElementById('catalogTableBody'),
+        tableResultsCount: document.getElementById('tableResultsCount'),
+        btnToggleHistory: document.getElementById('btnToggleHistory'),
+        btnCloseHistory: document.getElementById('btnCloseHistory'),
+        historyDrawer: document.getElementById('historyDrawer'),
+        drawerOverlay: document.getElementById('drawerOverlay'),
+        historyList: document.getElementById('historyList'),
+        historyBadge: document.getElementById('historyBadge'),
+        btnClearHistory: document.getElementById('btnClearHistory'),
+        movieModal: document.getElementById('movieModal'),
+        movieModalTitle: document.getElementById('movieModalTitle'),
+        movieForm: document.getElementById('movieForm'),
+        formMovieId: document.getElementById('formMovieId'),
+        formTitle: document.getElementById('formTitle'),
+        formDirector: document.getElementById('formDirector'),
+        formStudio: document.getElementById('formStudio'),
+        formYear: document.getElementById('formYear'),
+        formGenre: document.getElementById('formGenre'),
+        formCountry: document.getElementById('formCountry'),
+        formWatched: document.getElementById('formWatched'),
+        btnAutoFillForm: document.getElementById('btnAutoFillForm'),
+        btnDeleteMovie: document.getElementById('btnDeleteMovie'),
+        btnCloseMovieModal: document.getElementById('btnCloseMovieModal'),
+        btnCancelMovieModal: document.getElementById('btnCancelMovieModal'),
+        enrichModal: document.getElementById('enrichModal'),
+        btnCloseEnrichModal: document.getElementById('btnCloseEnrichModal'),
+        btnCancelEnrich: document.getElementById('btnCancelEnrich'),
+        btnStartBatchEnrich: document.getElementById('btnStartBatchEnrich'),
+        tmdbApiKeyInput: document.getElementById('tmdbApiKeyInput'),
+        enrichProgressBox: document.getElementById('enrichProgressBox'),
+        enrichProgressBar: document.getElementById('enrichProgressBar'),
+        enrichStatusText: document.getElementById('enrichStatusText'),
+        enrichPercentText: document.getElementById('enrichPercentText'),
+        confirmModal: document.getElementById('confirmModal'),
+        btnCancelReset: document.getElementById('btnCancelReset'),
+        btnConfirmReset: document.getElementById('btnConfirmReset'),
+        toastBox: document.getElementById('toastBox'),
+        toastMsg: document.getElementById('toastMsg')
+      };
+    }
+
+    /* =====================================================================
+       CSV PARSER (RFC-4180 Compatible)
+       ===================================================================== */
+    function parseCSV(text) {
+      const rows = [];
+      let currentRow = [];
+      let currentVal = '';
+      let insideQuotes = false;
+      const cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+      for (let i = 0; i < cleanText.length; i++) {
+        const char = cleanText[i];
+        const nextChar = cleanText[i + 1];
+
+        if (char === '"') {
+          if (insideQuotes && nextChar === '"') {
+            currentVal += '"';
+            i++;
+          } else {
+            insideQuotes = !insideQuotes;
+          }
+        } else if (char === ',' && !insideQuotes) {
+          currentRow.push(currentVal.trim());
+          currentVal = '';
+        } else if (char === '\n' && !insideQuotes) {
+          currentRow.push(currentVal.trim());
+          if (currentRow.length > 1 || currentRow[0] !== '') {
+            rows.push(currentRow);
+          }
+          currentRow = [];
+          currentVal = '';
+        } else {
+          currentVal += char;
+        }
+      }
+
+      if (currentVal || currentRow.length > 0) {
+        currentRow.push(currentVal.trim());
+        rows.push(currentRow);
+      }
+
+      return rows;
+    }
+
+    // Process parsed CSV matrix into streamlined movie objects
+    function processCollectionRows(rows) {
+      if (!rows || rows.length < 2) return [];
+
+      const rawHeaders = rows[0].map(h => h.trim().toLowerCase());
+      
+      // Check if this is a raw Blu-ray.com export or our custom format
+      const isBluRayComExport = rawHeaders.includes('upc') || rawHeaders.includes('ean') || rawHeaders.includes('asin');
+
+      const colIdx = {
+        title: rawHeaders.findIndex(h => h === 'title' || h.includes('title')),
+        director: rawHeaders.findIndex(h => h.includes('director')),
+        studio: rawHeaders.findIndex(h => h === 'studio' || h.includes('studio') || h.includes('production')),
+        country: rawHeaders.findIndex(h => h.includes('production country') || h === 'country'),
+        releaseDate: rawHeaders.findIndex(h => h.includes('release date')),
+        year: rawHeaders.findIndex(h => h.includes('year')),
+        watched: rawHeaders.findIndex(h => h.includes('watched') || h.includes('seen')),
+        genres: rawHeaders.findIndex(h => h.includes('genre')),
+        poster: rawHeaders.findIndex(h => h.includes('poster')),
+        overview: rawHeaders.findIndex(h => h.includes('overview') || h.includes('plot')),
+        owned: rawHeaders.findIndex(h => h === 'owned')
+      };
+
+      const movies = [];
+
+      for (let r = 1; r < rows.length; r++) {
+        const row = rows[r];
+        if (!row || row.length === 0) continue;
+
+        const getVal = (idx, fallback = '') => (idx !== -1 && row[idx] !== undefined ? row[idx].trim() : fallback);
+
+        // If it's a raw Blu-ray.com file and has an "Owned" flag, skip unowned if set to 0
+        if (isBluRayComExport && colIdx.owned !== -1) {
+          const ownedVal = getVal(colIdx.owned, '1');
+          if (ownedVal === '0') continue; // Skip wishlist / unowned entries
+        }
+
+        const title = getVal(colIdx.title, row[0] || '').replace(/^["']|["']$/g, '');
+        if (!title) continue;
+
+        const director = colIdx.director !== -1 ? getVal(colIdx.director, 'Unknown Director') : 'Unknown Director';
+        // In Blu-ray.com export, column 2 is distributor (e.g. Kino Lorber, Criterion)
+        const studio = colIdx.studio !== -1 ? getVal(colIdx.studio, 'Independent / Unknown') : 'Independent / Unknown';
+        const country = colIdx.country !== -1 ? getVal(colIdx.country, 'Unknown') : 'Unknown';
+        const genres = colIdx.genres !== -1 ? getVal(colIdx.genres, '') : '';
+        const poster = colIdx.poster !== -1 ? getVal(colIdx.poster, '') : '';
+        const overview = colIdx.overview !== -1 ? getVal(colIdx.overview, '') : '';
+        
+        // Year parsing: check explicit Year col, or extract 4 digits from Release Date or Title
+        let year = null;
+        const rawYear = colIdx.year !== -1 ? getVal(colIdx.year, '') : '';
+        const rawReleaseDate = colIdx.releaseDate !== -1 ? getVal(colIdx.releaseDate, '') : '';
+        const matchYear = (rawYear + ' ' + rawReleaseDate + ' ' + title).match(/\b(18\d\d|19\d\d|20\d\d)\b/);
+        if (matchYear) {
+          year = parseInt(matchYear[1], 10);
+        }
+
+        // Watched flag: 1, true, yes
+        const watchedVal = colIdx.watched !== -1 ? getVal(colIdx.watched, '0').toLowerCase() : '0';
+        const watched = watchedVal === '1' || watchedVal === 'true' || watchedVal === 'yes';
+
+        movies.push({
+          id: 'mov_' + Math.random().toString(36).substr(2, 9),
+          title,
+          director,
+          studio,
+          country,
+          year,
+          watched,
+          genres,
+          poster,
+          overview
+        });
+      }
+
+      return movies;
+    }
+
+    /* =====================================================================
+       INITIALIZATION & STORAGE
+       ===================================================================== */
+    function init() {
+      cacheDOMElements();
+
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+
+      setupEventListeners();
+
+      // Restore saved TMDb key if present
+      const savedKey = localStorage.getItem('cinepick_tmdb_key');
+      if (savedKey && elements.tmdbApiKeyInput) {
+        elements.tmdbApiKeyInput.value = savedKey;
+      }
+
+      const saved = localStorage.getItem('cinepick_clean_collection');
+      if (saved) {
+        try {
+          collectionData = JSON.parse(saved);
+          populateDynamicDropdowns();
+          applyFilters();
+          if (elements.btnClearData) {
+            elements.btnClearData.classList.remove('hidden');
+            elements.btnClearData.classList.add('flex');
+          }
+        } catch (e) {
+          console.error("Failed to parse saved collection:", e);
+          loadSampleData();
+        }
+      } else {
+        loadSampleData();
+      }
+    }
+
+    function loadSampleData() {
+      const rows = parseCSV(SAMPLE_CSV);
+      collectionData = processCollectionRows(rows);
+      localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+      populateDynamicDropdowns();
+      applyFilters();
+      if (elements.btnClearData) {
+        elements.btnClearData.classList.remove('hidden');
+        elements.btnClearData.classList.add('flex');
+      }
+      showToast("Loaded curated collection with new categories!");
+    }
+
+    /* =====================================================================
+       TMDB METADATA AUTO-ENRICHMENT SERVICE
+       ===================================================================== */
+    async function fetchMetadataForTitle(rawTitle, yearHint) {
+      const apiKey = elements.tmdbApiKeyInput ? elements.tmdbApiKeyInput.value.trim() : (localStorage.getItem('cinepick_tmdb_key') || '');
+      if (!apiKey) {
+        throw new Error("No TMDb API key provided. Please enter a key in the Auto-Enrich modal.");
+      }
+      localStorage.setItem('cinepick_tmdb_key', apiKey);
+
+      // Clean title for search (remove 4K, 3D, Blu-ray, parenthetical subtitles)
+      let cleanTitle = rawTitle.replace(/\s*\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '');
+      cleanTitle = cleanTitle.replace(/\b(4k|uhd|blu-ray|dvd|steelbook|criterion|kino)\b/gi, '').trim();
+
+      const authHeaders = apiKey.length > 50 ? { 'Authorization': `Bearer ${apiKey}` } : {};
+      const queryParam = apiKey.length > 50 ? '' : `&api_key=${apiKey}`;
+
+      let searchUrl = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(cleanTitle)}${queryParam}&include_adult=false`;
+      if (yearHint) {
+        searchUrl += `&year=${yearHint}`;
+      }
+
+      const res = await fetch(searchUrl, { headers: authHeaders });
+      if (!res.ok) throw new Error(`TMDb search failed (Status ${res.status})`);
+      const searchData = await res.json();
+
+      if (!searchData.results || searchData.results.length === 0) {
+        throw new Error(`No match found on TMDb for "${cleanTitle}"`);
+      }
+
+      const topResult = searchData.results[0];
+      const movieId = topResult.id;
+
+      // Fetch credits, production companies, production countries, genres
+      const detailUrl = `https://api.themoviedb.org/3/movie/${movieId}?append_to_response=credits${queryParam}`;
+      const detailRes = await fetch(detailUrl, { headers: authHeaders });
+      if (!detailRes.ok) throw new Error("Could not fetch detailed movie metadata");
+      const details = await detailRes.json();
+
+      // Extract Directors
+      let directors = 'Unknown Director';
+      if (details.credits && details.credits.crew) {
+        const directList = details.credits.crew
+          .filter(c => c.job === 'Director')
+          .map(c => c.name);
+        if (directList.length > 0) directors = directList.join(', ');
+      }
+
+      // Extract Studios
+      let studios = 'Independent / Unknown';
+      if (details.production_companies && details.production_companies.length > 0) {
+        studios = details.production_companies.slice(0, 2).map(c => c.name).join(', ');
+      }
+
+      // Extract Production Countries
+      let countries = 'Unknown Country';
+      if (details.production_countries && details.production_countries.length > 0) {
+        countries = details.production_countries.map(c => c.name).join(', ');
+      }
+
+      // Extract Production Year
+      let prodYear = null;
+      if (details.release_date) {
+        prodYear = parseInt(details.release_date.split('-')[0], 10);
+      }
+
+      // Extract Genres
+      const genres = details.genres && details.genres.length > 0 
+        ? details.genres.map(g => g.name).join(', ') 
+        : '';
+
+      const poster = details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : '';
+      const overview = details.overview || '';
+
+      return {
+        director: directors,
+        studio: studios,
+        country: countries,
+        year: prodYear,
+        genres,
+        poster,
+        overview
+      };
+    }
+
+    async function handleBatchEnrich() {
+      const apiKey = elements.tmdbApiKeyInput.value.trim();
+      if (!apiKey) {
+        showToast("Please enter your TMDb API Key or Token first!");
+        return;
+      }
+      localStorage.setItem('cinepick_tmdb_key', apiKey);
+
+      if (isEnrichingBatch) return;
+      isEnrichingBatch = true;
+
+      elements.enrichProgressBox.classList.remove('hidden');
+      elements.btnStartBatchEnrich.disabled = true;
+
+      const queue = collectionData.filter(m => 
+        !m.director || m.director === 'Unknown Director' || 
+        !m.studio || m.studio === 'Independent / Unknown' || 
+        !m.country || m.country === 'Unknown' ||
+        !m.year || !m.genres || !m.poster
+      );
+
+      if (queue.length === 0) {
+        showToast("All movies already have enriched data!");
+        elements.enrichProgressBox.classList.add('hidden');
+        elements.btnStartBatchEnrich.disabled = false;
+        isEnrichingBatch = false;
+        return;
+      }
+
+      let completed = 0;
+      let enrichedCount = 0;
+
+      for (let i = 0; i < queue.length; i++) {
+        const item = queue[i];
+        elements.enrichStatusText.textContent = `Enriching (${i + 1}/${queue.length}): "${item.title}"`;
+        const pct = Math.round(((i + 1) / queue.length) * 100);
+        elements.enrichProgressBar.style.width = `${pct}%`;
+        elements.enrichPercentText.textContent = `${pct}%`;
+
+        try {
+          const meta = await fetchMetadataForTitle(item.title, item.year);
+          if (meta) {
+            item.director = meta.director || item.director;
+            item.studio = meta.studio || item.studio;
+            item.country = meta.country || item.country;
+            if (meta.year) item.year = meta.year;
+            if (meta.genres) item.genres = meta.genres;
+            if (meta.poster) item.poster = meta.poster;
+            if (meta.overview) item.overview = meta.overview;
+            enrichedCount++;
+          }
+        } catch (err) {
+          console.warn(`Could not enrich ${item.title}:`, err.message);
+        }
+
+        completed++;
+        await new Promise(r => setTimeout(r, 250));
+      }
+
+      localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+      populateDynamicDropdowns();
+      applyFilters();
+
+      if (currentSelectedMovie) {
+        const refreshed = collectionData.find(m => m.id === currentSelectedMovie.id);
+        if (refreshed) finalizePick(refreshed);
+      }
+
+      elements.enrichStatusText.textContent = `Done! Successfully updated ${enrichedCount} titles.`;
+      elements.btnStartBatchEnrich.disabled = false;
+      isEnrichingBatch = false;
+      showToast(`Auto-enrichment finished! Updated ${enrichedCount} movies.`);
+      setTimeout(() => {
+        closeEnrichModal();
+        elements.enrichProgressBox.classList.add('hidden');
+      }, 1500);
+    }
+
+    async function handleAutoFillForm() {
+      const title = elements.formTitle.value.trim();
+      const year = elements.formYear.value ? parseInt(elements.formYear.value, 10) : null;
+      if (!title) {
+        showToast("Type a movie title first!");
+        return;
+      }
+
+      elements.btnAutoFillForm.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Searching...`;
+      if (window.lucide) lucide.createIcons();
+
+      try {
+        const meta = await fetchMetadataForTitle(title, year);
+        if (meta.director) elements.formDirector.value = meta.director;
+        if (meta.studio) elements.formStudio.value = meta.studio;
+        if (meta.country) elements.formCountry.value = meta.country;
+        if (meta.year) elements.formYear.value = meta.year;
+        if (meta.genres && elements.formGenre) elements.formGenre.value = meta.genres;
+        showToast("Auto-filled details & genre from TMDb!");
+      } catch (err) {
+        showToast(err.message || "Could not auto-fill metadata.");
+      } finally {
+        elements.btnAutoFillForm.innerHTML = `<i data-lucide="sparkles" class="w-3 h-3"></i> Auto-fill via TMDb`;
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    async function handleFetchSingleMovie() {
+      if (!currentSelectedMovie) return;
+      elements.btnFetchSingleMovie.disabled = true;
+      elements.btnFetchSingleMovie.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Fetching...`;
+      if (window.lucide) lucide.createIcons();
+
+      try {
+        const meta = await fetchMetadataForTitle(currentSelectedMovie.title, currentSelectedMovie.year);
+        currentSelectedMovie.director = meta.director;
+        currentSelectedMovie.studio = meta.studio;
+        currentSelectedMovie.country = meta.country;
+        if (meta.year) currentSelectedMovie.year = meta.year;
+        if (meta.genres) currentSelectedMovie.genres = meta.genres;
+        if (meta.poster) currentSelectedMovie.poster = meta.poster;
+        if (meta.overview) currentSelectedMovie.overview = meta.overview;
+
+        const idx = collectionData.findIndex(m => m.id === currentSelectedMovie.id);
+        if (idx !== -1) collectionData[idx] = currentSelectedMovie;
+        localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+
+        finalizePick(currentSelectedMovie);
+        populateDynamicDropdowns();
+        showToast("Movie details & genre updated from TMDb!");
+      } catch (err) {
+        showToast(err.message || "Failed to fetch metadata.");
+      } finally {
+        elements.btnFetchSingleMovie.disabled = false;
+        elements.btnFetchSingleMovie.innerHTML = `<i data-lucide="sparkles" class="w-3.5 h-3.5"></i> <span>Fetch Details</span>`;
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    /* =====================================================================
+       FILTERING SYSTEM (Supports Multi-Genre, Multi-Country, Multi-Director)
+       ===================================================================== */
+    function populateDynamicDropdowns() {
+      const genres = new Set();
+      const directors = new Set();
+      const studios = new Set();
+      const countries = new Set();
+
+      collectionData.forEach(m => {
+        // Support comma-separated genres
+        if (m.genres) {
+          m.genres.split(',').forEach(g => {
+            const clean = g.trim();
+            if (clean) genres.add(clean);
+          });
+        }
+        // Support comma-separated multi-directors
+        if (m.director && m.director !== 'Unknown Director') {
+          m.director.split(',').forEach(d => {
+            const clean = d.trim();
+            if (clean) directors.add(clean);
+          });
+        }
+        // Support comma-separated studios
+        if (m.studio && m.studio !== 'Independent / Unknown') {
+          m.studio.split(',').forEach(s => {
+            const clean = s.trim();
+            if (clean) studios.add(clean);
+          });
+        }
+        // Support comma-separated production countries
+        if (m.country && m.country !== 'Unknown' && m.country !== 'Unknown Country') {
+          m.country.split(',').forEach(c => {
+            const clean = c.trim();
+            if (clean) countries.add(clean);
+          });
+        }
+      });
+
+      const fillDropdown = (selectEl, set, defaultText) => {
+        if (!selectEl) return;
+        const currentVal = selectEl.value;
+        const sorted = Array.from(set).sort((a, b) => a.localeCompare(b));
+        selectEl.innerHTML = `<option value="ALL">${defaultText} (${sorted.length})</option>`;
+        sorted.forEach(item => {
+          const opt = document.createElement('option');
+          opt.value = item;
+          opt.textContent = item;
+          if (item === currentVal) opt.selected = true;
+          selectEl.appendChild(opt);
+        });
+      };
+
+      fillDropdown(elements.filterGenre, genres, 'All Genres');
+      fillDropdown(elements.filterDirector, directors, 'All Directors');
+      fillDropdown(elements.filterStudio, studios, 'All Studios');
+      fillDropdown(elements.filterCountry, countries, 'All Countries');
+    }
+
+    function applyFilters() {
+      const search = elements.filterSearch.value.trim().toLowerCase();
+      const watchedFilter = elements.filterWatched.value;
+      const decade = elements.filterDecade.value;
+      const genre = elements.filterGenre ? elements.filterGenre.value : 'ALL';
+      const director = elements.filterDirector ? elements.filterDirector.value : 'ALL';
+      const studio = elements.filterStudio ? elements.filterStudio.value : 'ALL';
+      const country = elements.filterCountry ? elements.filterCountry.value : 'ALL';
+
+      filteredMovies = collectionData.filter(m => {
+        // Watched Filter
+        if (watchedFilter === 'UNWATCHED' && m.watched) return false;
+        if (watchedFilter === 'WATCHED' && !m.watched) return false;
+
+        // Search text check
+        if (search) {
+          const haystack = `${m.title} ${m.director} ${m.studio} ${m.country} ${m.genres || ''} ${m.year || ''}`.toLowerCase();
+          if (!haystack.includes(search)) return false;
+        }
+
+        // Decade
+        if (decade !== 'ALL' && m.year) {
+          const yr = m.year;
+          if (decade === '2020s' && (yr < 2020)) return false;
+          if (decade === '2010s' && (yr < 2010 || yr > 2019)) return false;
+          if (decade === '2000s' && (yr < 2000 || yr > 2009)) return false;
+          if (decade === '1990s' && (yr < 1990 || yr > 1999)) return false;
+          if (decade === '1980s' && (yr < 1980 || yr > 1989)) return false;
+          if (decade === '1970s' && (yr < 1970 || yr > 1979)) return false;
+          if (decade === '1960s' && (yr < 1960 || yr > 1969)) return false;
+          if (decade === 'PRE1960' && yr >= 1960) return false;
+        }
+
+        // Genre (matches comma-separated genres)
+        if (genre !== 'ALL') {
+          if (!m.genres || !m.genres.toLowerCase().includes(genre.toLowerCase())) return false;
+        }
+
+        // Director
+        if (director !== 'ALL') {
+          if (!m.director || !m.director.toLowerCase().includes(director.toLowerCase())) return false;
+        }
+
+        // Studio
+        if (studio !== 'ALL') {
+          if (!m.studio || !m.studio.toLowerCase().includes(studio.toLowerCase())) return false;
+        }
+
+        // Country
+        if (country !== 'ALL') {
+          if (!m.country || !m.country.toLowerCase().includes(country.toLowerCase())) return false;
+        }
+
+        return true;
+      });
+
+      updateCounters();
+      renderCatalogTable();
+    }
+
+    function resetFilters() {
+      elements.filterSearch.value = '';
+      elements.filterWatched.value = 'ALL';
+      elements.filterDecade.value = 'ALL';
+      if (elements.filterGenre) elements.filterGenre.value = 'ALL';
+      if (elements.filterDirector) elements.filterDirector.value = 'ALL';
+      if (elements.filterStudio) elements.filterStudio.value = 'ALL';
+      if (elements.filterCountry) elements.filterCountry.value = 'ALL';
+      applyFilters();
+      showToast("Filters reset to default.");
+    }
+
+    function updateCounters() {
+      if (elements.statTotalCount) elements.statTotalCount.textContent = collectionData.length;
+      if (elements.totalCollectionCount) elements.totalCollectionCount.textContent = collectionData.length;
+      if (elements.filteredCount) elements.filteredCount.textContent = filteredMovies.length;
+      if (elements.tableResultsCount) elements.tableResultsCount.textContent = filteredMovies.length;
+      if (elements.btnPickMovie) {
+        elements.btnPickMovie.disabled = filteredMovies.length === 0;
+      }
+    }
+
+    /* =====================================================================
+       RANDOM PICK ENGINE & ANIMATION
+       ===================================================================== */
+    function triggerRandomPick() {
+      if (filteredMovies.length === 0 || isRolling) return;
+
+      isRolling = true;
+      elements.btnPickMovie.disabled = true;
+      elements.selectedMovieCard.classList.add('hidden');
+      
+      let counter = 0;
+      const totalSteps = 24;
+      const speed = 65;
+
+      rollInterval = setInterval(() => {
+        const randIndex = Math.floor(Math.random() * filteredMovies.length);
+        const tempMovie = filteredMovies[randIndex];
+        elements.rollerText.textContent = tempMovie.title;
+        elements.rollerBox.classList.add('border-cineGold-500');
+
+        counter++;
+        if (counter >= totalSteps) {
+          clearInterval(rollInterval);
+          finalizePick(tempMovie);
+        }
+      }, speed);
+    }
+
+    function finalizePick(movie) {
+      currentSelectedMovie = movie;
+      isRolling = false;
+      elements.btnPickMovie.disabled = false;
+      elements.rollerBox.classList.remove('border-cineGold-500');
+      elements.rollerText.textContent = movie.title;
+
+      // Fill in details on the selected movie card
+      elements.cardTitle.textContent = movie.title;
+      elements.cardDirector.textContent = movie.director || 'Unknown Director';
+      elements.cardStudio.textContent = movie.studio || 'Independent';
+      elements.cardYear.textContent = movie.year ? movie.year : 'Release Year N/A';
+      elements.cardCountry.textContent = movie.country || 'Unknown Country';
+
+      // Poster & Overview
+      if (movie.poster) {
+        elements.cardPoster.src = movie.poster;
+        elements.cardPoster.classList.remove('hidden');
+        elements.cardPosterFallback.classList.add('hidden');
+      } else {
+        elements.cardPoster.src = '';
+        elements.cardPoster.classList.add('hidden');
+        elements.cardPosterFallback.classList.remove('hidden');
+      }
+
+      if (movie.overview) {
+        elements.cardOverview.textContent = movie.overview;
+        elements.cardOverview.classList.remove('hidden');
+      } else {
+        elements.cardOverview.classList.add('hidden');
+      }
+
+      // Render Genre Badges
+      elements.cardGenresList.innerHTML = '';
+      if (movie.genres) {
+        const glist = movie.genres.split(',').map(g => g.trim()).filter(Boolean);
+        glist.forEach(g => {
+          const badge = document.createElement('span');
+          badge.className = 'px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 font-medium text-[11px]';
+          badge.textContent = g;
+          elements.cardGenresList.appendChild(badge);
+        });
+      }
+
+      // Watched status indicator & button toggle
+      updateWatchedDisplay(movie);
+
+      // Web Verification & Database Links
+      const cleanSearchQuery = encodeURIComponent(movie.title.replace(/\([^)]*\)/g, '').trim());
+      elements.linkLetterboxd.href = `https://letterboxd.com/search/${cleanSearchQuery}/`;
+      elements.linkImdb.href = `https://www.imdb.com/find/?q=${cleanSearchQuery}`;
+
+      elements.selectedMovieCard.classList.remove('hidden');
+      elements.selectedMovieCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      addToHistory(movie);
+
+      try {
+        confetti({
+          particleCount: 40,
+          spread: 60,
+          origin: { y: 0.65 },
+          colors: ['#e5a93b', '#facc15', '#ffffff']
+        });
+      } catch (e) {}
+
+      lucide.createIcons();
+    }
+
+    function updateWatchedDisplay(movie) {
+      if (movie.watched) {
+        elements.cardWatchedStatusBadge.textContent = "Watched";
+        elements.cardWatchedStatusBadge.className = "text-[11px] font-extrabold uppercase tracking-wider text-emerald-300 bg-emerald-950/60 border border-emerald-600/40 px-2 py-0.5 rounded";
+        elements.btnToggleWatchedPickText.textContent = "Mark Unwatched";
+      } else {
+        elements.cardWatchedStatusBadge.textContent = "Unwatched";
+        elements.cardWatchedStatusBadge.className = "text-[11px] font-extrabold uppercase tracking-wider text-amber-300 bg-amber-950/60 border border-amber-600/40 px-2 py-0.5 rounded";
+        elements.btnToggleWatchedPickText.textContent = "Mark Watched";
+      }
+    }
+
+    function toggleWatchedCurrentPick() {
+      if (!currentSelectedMovie) return;
+      currentSelectedMovie.watched = !currentSelectedMovie.watched;
+      
+      const idx = collectionData.findIndex(m => m.id === currentSelectedMovie.id);
+      if (idx !== -1) {
+        collectionData[idx].watched = currentSelectedMovie.watched;
+        localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+      }
+
+      updateWatchedDisplay(currentSelectedMovie);
+      applyFilters();
+      showToast(`Marked "${currentSelectedMovie.title}" as ${currentSelectedMovie.watched ? 'Watched' : 'Unwatched'}`);
+    }
+
+    /* =====================================================================
+       ADD & EDIT MOVIE DETAILS MODAL
+       ===================================================================== */
+    function openAddMovieModal() {
+      elements.movieModalTitle.textContent = "Add Title to Collection";
+      elements.movieForm.reset();
+      elements.formMovieId.value = '';
+      elements.formCountry.value = 'United States';
+      if (elements.formGenre) elements.formGenre.value = '';
+      elements.formWatched.checked = false;
+      elements.btnDeleteMovie.classList.add('hidden');
+
+      elements.movieModal.classList.remove('hidden');
+      setTimeout(() => elements.movieModal.classList.remove('opacity-0'), 10);
+    }
+
+    function openEditMovieModal(movie) {
+      if (!movie) return;
+      currentSelectedMovie = movie;
+      elements.movieModalTitle.textContent = "Edit Movie Details";
+      elements.formMovieId.value = movie.id;
+      elements.formTitle.value = movie.title || '';
+      elements.formDirector.value = movie.director || '';
+      elements.formStudio.value = movie.studio || '';
+      elements.formYear.value = movie.year || '';
+      if (elements.formGenre) elements.formGenre.value = movie.genres || '';
+      elements.formCountry.value = movie.country || '';
+      elements.formWatched.checked = Boolean(movie.watched);
+
+      elements.btnDeleteMovie.classList.remove('hidden');
+
+      elements.movieModal.classList.remove('hidden');
+      setTimeout(() => elements.movieModal.classList.remove('opacity-0'), 10);
+    }
+
+    function closeMovieModal() {
+      if (!elements.movieModal) return;
+      elements.movieModal.classList.add('opacity-0');
+      setTimeout(() => elements.movieModal.classList.add('hidden'), 200);
+    }
+
+    function handleMovieFormSubmit(e) {
+      e.preventDefault();
+      const id = elements.formMovieId.value;
+      const isNew = !id;
+
+      const movieObj = {
+        id: id || 'mov_' + Math.random().toString(36).substr(2, 9),
+        title: elements.formTitle.value.trim(),
+        director: elements.formDirector.value.trim() || 'Unknown Director',
+        studio: elements.formStudio.value.trim() || 'Independent',
+        year: elements.formYear.value ? parseInt(elements.formYear.value, 10) : null,
+        genres: elements.formGenre ? elements.formGenre.value.trim() : '',
+        country: elements.formCountry.value.trim() || 'Unknown Country',
+        watched: elements.formWatched.checked,
+        poster: currentSelectedMovie && currentSelectedMovie.id === id ? currentSelectedMovie.poster : '',
+        overview: currentSelectedMovie && currentSelectedMovie.id === id ? currentSelectedMovie.overview : ''
+      };
+
+      if (isNew) {
+        collectionData.unshift(movieObj);
+        showToast(`Added "${movieObj.title}" to collection!`);
+      } else {
+        const index = collectionData.findIndex(m => m.id === id);
+        if (index !== -1) {
+          collectionData[index] = movieObj;
+          showToast(`Updated details for "${movieObj.title}"!`);
+        }
+      }
+
+      localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+
+      populateDynamicDropdowns();
+      applyFilters();
+
+      if (currentSelectedMovie && currentSelectedMovie.id === movieObj.id) {
+        finalizePick(movieObj);
+      }
+
+      closeMovieModal();
+      if (elements.btnClearData) {
+        elements.btnClearData.classList.remove('hidden');
+        elements.btnClearData.classList.add('flex');
+      }
+    }
+
+    function handleDeleteMovie() {
+      const id = elements.formMovieId.value;
+      if (!id) return;
+
+      const idx = collectionData.findIndex(m => m.id === id);
+      if (idx !== -1) {
+        const removedTitle = collectionData[idx].title;
+        collectionData.splice(idx, 1);
+        localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+        populateDynamicDropdowns();
+        applyFilters();
+
+        if (currentSelectedMovie && currentSelectedMovie.id === id) {
+          elements.selectedMovieCard.classList.add('hidden');
+          currentSelectedMovie = null;
+        }
+
+        closeMovieModal();
+        showToast(`Removed "${removedTitle}" from collection.`);
+      }
+    }
+
+    /* =====================================================================
+       CLEAN CSV EXPORT FEATURE
+       ===================================================================== */
+    function exportCollectionToCSV() {
+      if (!collectionData || collectionData.length === 0) {
+        showToast("No movies to export!");
+        return;
+      }
+
+      const headers = ["Title", "Director", "Movie Studio", "Production Country", "Year", "Genres", "Watched", "Poster", "Overview"];
+      const csvRows = [headers.join(",")];
+
+      collectionData.forEach(m => {
+        const row = [
+          `"${(m.title || '').replace(/"/g, '""')}"`,
+          `"${(m.director || '').replace(/"/g, '""')}"`,
+          `"${(m.studio || '').replace(/"/g, '""')}"`,
+          `"${(m.country || '').replace(/"/g, '""')}"`,
+          m.year || '',
+          `"${(m.genres || '').replace(/"/g, '""')}"`,
+          m.watched ? 1 : 0,
+          `"${(m.poster || '').replace(/"/g, '""')}"`,
+          `"${(m.overview || '').replace(/"/g, '""')}"`
+        ];
+        csvRows.push(row.join(","));
+      });
+
+      const blob = new Blob([csvRows.join("\n")], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `clean_movie_collection_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      showToast(`Exported ${collectionData.length} movies to clean CSV!`);
+    }
+
+    /* =====================================================================
+       ENRICH MODAL HELPERS
+       ===================================================================== */
+    function openEnrichModal() {
+      elements.enrichModal.classList.remove('hidden');
+      setTimeout(() => elements.enrichModal.classList.remove('opacity-0'), 10);
+    }
+
+    function closeEnrichModal() {
+      elements.enrichModal.classList.add('opacity-0');
+      setTimeout(() => elements.enrichModal.classList.add('hidden'), 200);
+    }
+
+    /* =====================================================================
+       SESSION HISTORY
+       ===================================================================== */
+    function addToHistory(movie) {
+      if (sessionHistory.length > 0 && sessionHistory[0].id === movie.id) return;
+      sessionHistory.unshift(movie);
+      renderHistory();
+    }
+
+    function renderHistory() {
+      elements.historyBadge.textContent = sessionHistory.length;
+      
+      if (sessionHistory.length === 0) {
+        elements.historyList.innerHTML = '<p class="text-xs text-slate-500 text-center py-8">No movies picked yet this session.</p>';
+        return;
+      }
+
+      elements.historyList.innerHTML = '';
+      sessionHistory.forEach((m, idx) => {
+        const item = document.createElement('div');
+        item.className = 'p-3 rounded-xl bg-cineDark-850 border border-slate-800 hover:border-slate-700 transition flex items-center justify-between gap-3 text-xs';
+        item.innerHTML = `
+          <div class="min-w-0">
+            <h4 class="font-bold text-slate-100 truncate">${m.title}</h4>
+            <div class="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+              <span class="text-cineGold-400 font-semibold">${m.director}</span>
+              <span>&bull;</span>
+              <span>${m.year || '--'}</span>
+            </div>
+          </div>
+          <button class="select-history-item p-1.5 rounded-lg bg-cineDark-800 text-slate-300 hover:text-cineGold-400 transition" data-index="${idx}">
+            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+          </button>
+        `;
+        elements.historyList.appendChild(item);
+      });
+
+      document.querySelectorAll('.select-history-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.getAttribute('data-index'), 10);
+          finalizePick(sessionHistory[idx]);
+          closeHistoryDrawer();
+        });
+      });
+
+      lucide.createIcons();
+    }
+
+    /* =====================================================================
+       CATALOG TABLE RENDER
+       ===================================================================== */
+    function renderCatalogTable() {
+      elements.catalogTableBody.innerHTML = '';
+
+      if (filteredMovies.length === 0) {
+        elements.catalogTableBody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-slate-500">No matching movies found.</td></tr>`;
+        return;
+      }
+
+      const displayList = filteredMovies.slice(0, 250);
+
+      displayList.forEach(m => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-800/40 transition-colors';
+        tr.innerHTML = `
+          <td class="px-4 py-3 font-semibold text-slate-200">${m.title}</td>
+          <td class="px-4 py-3 text-indigo-300 truncate max-w-[150px]">${m.genres || '--'}</td>
+          <td class="px-4 py-3 text-slate-300 font-medium">${m.director}</td>
+          <td class="px-4 py-3 text-slate-400 truncate max-w-[140px]">${m.studio}</td>
+          <td class="px-4 py-3 text-slate-400 font-mono">${m.year || '--'}</td>
+          <td class="px-4 py-3 text-slate-400">${m.country}</td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${m.watched ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-600/30' : 'bg-slate-800 text-slate-400 border border-slate-700'}">
+              ${m.watched ? 'Watched' : 'Unwatched'}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-right flex items-center justify-end gap-1.5">
+            <button class="table-pick-btn px-2.5 py-1 rounded bg-cineDark-850 hover:bg-cineGold-500 hover:text-black text-slate-300 transition text-[11px] font-semibold border border-slate-700" data-id="${m.id}">
+              Inspect
+            </button>
+            <button class="table-edit-btn p-1 rounded bg-cineDark-850 hover:bg-cineDark-700 text-slate-400 hover:text-cineGold-400 transition border border-slate-700" data-id="${m.id}" title="Edit movie details">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+            </button>
+          </td>
+        `;
+        elements.catalogTableBody.appendChild(tr);
+      });
+
+      document.querySelectorAll('.table-pick-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          const found = collectionData.find(item => item.id === id);
+          if (found) finalizePick(found);
+        });
+      });
+
+      document.querySelectorAll('.table-edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          const found = collectionData.find(item => item.id === id);
+          if (found) openEditMovieModal(found);
+        });
+      });
+
+      lucide.createIcons();
+    }
+
+    function setupEventListeners() {
+      const on = (el, event, handler) => {
+        if (el) el.addEventListener(event, handler);
+      };
+
+      // Pick Buttons
+      on(elements.btnPickMovie, 'click', triggerRandomPick);
+      on(elements.btnPickAgain, 'click', triggerRandomPick);
+      on(elements.btnToggleWatchedPick, 'click', toggleWatchedCurrentPick);
+      on(elements.btnEditPick, 'click', () => {
+        if (currentSelectedMovie) openEditMovieModal(currentSelectedMovie);
+      });
+      on(elements.btnFetchSingleMovie, 'click', handleFetchSingleMovie);
+
+      // Add Movie & Export Buttons
+      on(elements.btnOpenAddMovie, 'click', openAddMovieModal);
+      on(elements.btnExportCSV, 'click', exportCollectionToCSV);
+
+      // Auto-Enrich Modal
+      on(elements.btnOpenEnrichModal, 'click', openEnrichModal);
+      on(elements.btnCloseEnrichModal, 'click', closeEnrichModal);
+      on(elements.btnCancelEnrich, 'click', closeEnrichModal);
+      on(elements.btnStartBatchEnrich, 'click', handleBatchEnrich);
+      on(elements.btnAutoFillForm, 'click', handleAutoFillForm);
+
+      // Movie Details Modal
+      on(elements.btnCloseMovieModal, 'click', closeMovieModal);
+      on(elements.btnCancelMovieModal, 'click', closeMovieModal);
+      on(elements.movieForm, 'submit', handleMovieFormSubmit);
+      on(elements.btnDeleteMovie, 'click', handleDeleteMovie);
+
+      // Filters
+      on(elements.filterSearch, 'input', applyFilters);
+      on(elements.filterWatched, 'change', applyFilters);
+      on(elements.filterDecade, 'change', applyFilters);
+      on(elements.filterGenre, 'change', applyFilters);
+      on(elements.filterDirector, 'change', applyFilters);
+      on(elements.filterStudio, 'change', applyFilters);
+      on(elements.filterCountry, 'change', applyFilters);
+      on(elements.btnResetFilters, 'click', resetFilters);
+
+      // File upload trigger
+      on(elements.btnTriggerUpload, 'click', () => {
+        if (elements.csvFileInput) elements.csvFileInput.click();
+      });
+
+      on(elements.btnOpenUploader, 'click', () => {
+        if (elements.uploaderSection) elements.uploaderSection.scrollIntoView({ behavior: 'smooth' });
+        if (elements.csvFileInput) elements.csvFileInput.click();
+      });
+
+      on(elements.csvFileInput, 'change', handleFileSelected);
+
+      // Drag & Drop
+      if (elements.dropZone) {
+        elements.dropZone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          elements.dropZone.classList.add('border-cineGold-500', 'bg-cineGold-500/10');
+        });
+        elements.dropZone.addEventListener('dragleave', () => {
+          elements.dropZone.classList.remove('border-cineGold-500', 'bg-cineGold-500/10');
+        });
+        elements.dropZone.addEventListener('drop', (e) => {
+          e.preventDefault();
+          elements.dropZone.classList.remove('border-cineGold-500', 'bg-cineGold-500/10');
+          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            readFile(e.dataTransfer.files[0]);
+          }
+        });
+        elements.dropZone.addEventListener('click', () => {
+          if (elements.csvFileInput) elements.csvFileInput.click();
+        });
+      }
+
+      // Sample Data Button
+      on(elements.btnLoadSample, 'click', loadSampleData);
+
+      // Reset Data Modal
+      on(elements.btnClearData, 'click', openResetModal);
+      on(elements.btnCancelReset, 'click', closeResetModal);
+      on(elements.btnConfirmReset, 'click', executeResetData);
+
+      // Toggle Catalog Table View
+      on(elements.btnToggleCatalogView, 'click', () => {
+        if (!elements.catalogSection) return;
+        const isHidden = elements.catalogSection.classList.contains('hidden');
+        if (isHidden) {
+          elements.catalogSection.classList.remove('hidden');
+          if (elements.txtToggleCatalog) elements.txtToggleCatalog.textContent = "Hide Filtered List";
+          elements.catalogSection.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          elements.catalogSection.classList.add('hidden');
+          if (elements.txtToggleCatalog) elements.txtToggleCatalog.textContent = "Browse Filtered List";
+        }
+      });
+
+      // History Drawer
+      on(elements.btnToggleHistory, 'click', openHistoryDrawer);
+      on(elements.btnCloseHistory, 'click', closeHistoryDrawer);
+      on(elements.drawerOverlay, 'click', () => {
+        closeHistoryDrawer();
+        closeResetModal();
+        closeMovieModal();
+      });
+      on(elements.btnClearHistory, 'click', () => {
+        sessionHistory = [];
+        renderHistory();
+        showToast("History cleared.");
+      });
+
+      // Card quick actions (Share / Copy)
+      on(elements.btnSharePick, 'click', () => {
+        const text = `Tonight's Pick: ${elements.cardTitle.textContent} (${elements.cardYear.textContent}) directed by ${elements.cardDirector.textContent} [${elements.cardStudio.textContent}]`;
+        copyToClipboard(text);
+        showToast("Copied movie details to clipboard!");
+      });
+    }
+
+    function openResetModal() {
+      if (!elements.confirmModal) return;
+      elements.confirmModal.classList.remove('hidden');
+      setTimeout(() => elements.confirmModal.classList.remove('opacity-0'), 10);
+    }
+
+    function closeResetModal() {
+      if (!elements.confirmModal) return;
+      elements.confirmModal.classList.add('opacity-0');
+      setTimeout(() => elements.confirmModal.classList.add('hidden'), 200);
+    }
+
+    function executeResetData() {
+      closeResetModal();
+      localStorage.removeItem('cinepick_clean_collection');
+      collectionData = [];
+      filteredMovies = [];
+      sessionHistory = [];
+      populateDynamicDropdowns();
+      applyFilters();
+      renderHistory();
+      if (elements.selectedMovieCard) elements.selectedMovieCard.classList.add('hidden');
+      if (elements.btnClearData) elements.btnClearData.classList.add('hidden');
+      showToast("Collection cleared.");
+    }
+
+    function handleFileSelected(e) {
+      if (e.target.files && e.target.files[0]) {
+        readFile(e.target.files[0]);
+      }
+    }
+
+    function readFile(file) {
+      if (!file.name.endsWith('.csv') && !file.name.endsWith('.txt')) {
+        showToast("Please upload a valid .csv file.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const content = evt.target.result;
+          const rows = parseCSV(content);
+          const parsed = processCollectionRows(rows);
+
+          if (parsed.length === 0) {
+            showToast("No valid movie rows found in file.");
+            return;
+          }
+
+          collectionData = parsed;
+          localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+          populateDynamicDropdowns();
+          applyFilters();
+          elements.btnClearData.classList.remove('hidden');
+          elements.btnClearData.classList.add('flex');
+          showToast(`Successfully imported ${collectionData.length} movies!`);
+        } catch (err) {
+          console.error(err);
+          showToast("Error parsing CSV. Please check formatting.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    /* =====================================================================
+       DRAWER & UI HELPERS
+       ===================================================================== */
+    function openHistoryDrawer() {
+      elements.historyDrawer.classList.remove('translate-x-full');
+      elements.drawerOverlay.classList.remove('hidden');
+    }
+
+    function closeHistoryDrawer() {
+      elements.historyDrawer.classList.add('translate-x-full');
+      elements.drawerOverlay.classList.add('hidden');
+    }
+
+    function showToast(message) {
+      elements.toastMsg.textContent = message;
+      elements.toastBox.classList.remove('translate-y-24', 'opacity-0');
+      setTimeout(() => {
+        elements.toastBox.classList.add('translate-y-24', 'opacity-0');
+      }, 3500);
+    }
+
+    function copyToClipboard(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+      } catch (err) {
+        console.error('Copy failed', err);
+      }
+      document.body.removeChild(textarea);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>
