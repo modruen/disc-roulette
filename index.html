@@ -689,8 +689,11 @@
        - Columns: Title, Director, Movie Studio, Production Country, Year, Watched, Genres
        ===================================================================== */
 
-    // Sample streamlined database with genres
-    const SAMPLE_CSV = `Title,Director,Movie Studio,Production Country,Year,Watched,Genres
+    // YOUR EMBEDDED COLLECTION:
+    // When you open Disc Roulette on your phone or any new browser, it will
+    // automatically load this collection as your default library!
+    // Paste your CSV rows here (either Blu-ray.com format or clean format)
+    const EMBEDDED_COLLECTION_CSV = `Title,Director,Movie Studio,Production Country,Year,Watched,Genres
 "1,000 Convicts and a Woman",Ray Austin,Kino Lorber,United Kingdom,1971,0,"Drama, Crime"
 "Alien",Ridley Scott,20th Century Fox,United States,1979,1,"Science Fiction, Horror"
 "The Thing",John Carpenter,Universal Pictures,United States,1982,1,"Horror, Mystery, Science Fiction"
@@ -961,15 +964,16 @@
           }
         } catch (e) {
           console.error("Failed to parse saved collection:", e);
-          loadSampleData();
+          loadEmbeddedCollection();
         }
       } else {
-        loadSampleData();
+        // Automatically load the embedded collection on any new device/phone!
+        loadEmbeddedCollection();
       }
     }
 
-    function loadSampleData() {
-      const rows = parseCSV(SAMPLE_CSV);
+    function loadEmbeddedCollection() {
+      const rows = parseCSV(EMBEDDED_COLLECTION_CSV);
       collectionData = processCollectionRows(rows);
       localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
       populateDynamicDropdowns();
@@ -978,7 +982,11 @@
         elements.btnClearData.classList.remove('hidden');
         elements.btnClearData.classList.add('flex');
       }
-      showToast("Loaded curated collection with new categories!");
+    }
+
+    function loadSampleData() {
+      loadEmbeddedCollection();
+      showToast("Loaded collection library!");
     }
 
     /* =====================================================================
