@@ -1741,13 +1741,21 @@
           clean = clean.replace(/\b(4k|uhd|blu-ray|dvd|steelbook|criterion|kino)\b/gi, '').trim();
 
           let searchUrl = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(clean)}${queryParam}&include_adult=false`;
-          if (movie.year) searchUrl += `&year=${movie.year}`;
+          if (movie.year) {
+            searchUrl += `&primary_release_year=${movie.year}&year=${movie.year}`;
+          }
 
           const res = await fetch(searchUrl, { headers: authHeaders });
           if (res.ok) {
             const data = await res.json();
             if (data.results && data.results.length > 0) {
-              const top = data.results[0];
+              // Pick best match: match year exactly if available, else pick highest popularity
+              let top = data.results[0];
+              if (movie.year && data.results.length > 1) {
+                const yearMatch = data.results.find(r => r.release_date && r.release_date.startsWith(String(movie.year)));
+                if (yearMatch) top = yearMatch;
+              }
+
               const detailUrl = `https://api.themoviedb.org/3/movie/${top.id}?append_to_response=credits${queryParam}`;
               const dRes = await fetch(detailUrl, { headers: authHeaders });
               if (dRes.ok) {
@@ -1764,6 +1772,9 @@
                 }
                 if (details.production_companies && details.production_companies.length > 0 && (!movie.studio || movie.studio === 'Independent')) {
                   movie.studio = details.production_companies.slice(0, 2).map(c => c.name).join(', ');
+                }
+                if (details.production_countries && details.production_countries.length > 0 && (!movie.country || movie.country === 'Unknown Country' || movie.country === 'United States')) {
+                  movie.country = details.production_countries.map(c => c.name).join(' / ');
                 }
                 if (details.release_date && !movie.year) {
                   movie.year = parseInt(details.release_date.split('-')[0], 10);
@@ -1820,7 +1831,7 @@
 
       const headers = parseCsvLine(lines[0]).map(h => h.trim().toLowerCase());
       
-      const titleIdx = headers.findIndex(h => h.includes('title') || h === 'movie' || h === 'film');
+      const titleIdx = headers.findIndex(h => h.includes('title') || h === 'movie' || h === 'film' || h === 'name');
       const yearIdx = headers.findIndex(h => h.includes('year') || h === 'release' || h.includes('prod'));
       const dirIdx = headers.findIndex(h => h.includes('director') || h.includes('filmmaker'));
       const studioIdx = headers.findIndex(h => h.includes('studio') || h.includes('distributor') || h.includes('label'));
@@ -1829,9 +1840,10 @@
       const watchedIdx = headers.findIndex(h => h.includes('watched') || h.includes('viewed') || h.includes('seen'));
       const posterIdx = headers.findIndex(h => h.includes('poster') || h.includes('image'));
       const overviewIdx = headers.findIndex(h => h.includes('overview') || h.includes('synopsis') || h.includes('plot'));
+      const letterboxdUrlIdx = headers.findIndex(h => h === 'url' || h.includes('letterboxd'));
 
       if (titleIdx === -1) {
-        showToast("Could not find a 'Title' column in your CSV.", "error");
+        showToast("Could not find a 'Title' or 'Name' column in your CSV.", "error");
         return;
       }
 
