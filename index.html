@@ -66,6 +66,11 @@
     ::-webkit-scrollbar-thumb:hover {
       background: #334155;
     }
+
+    /* Roulette Wheel Canvas Styling */
+    .wheel-glow {
+      box-shadow: 0 0 45px rgba(245, 158, 11, 0.25), inset 0 0 25px rgba(0, 0, 0, 0.8);
+    }
   </style>
 </head>
 <body class="bg-cineDark-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-cineGold-500 selection:text-black">
@@ -321,9 +326,41 @@
 
         </div>
 
-        <!-- Quick Ticker Ticker Bar during Roll -->
-        <div id="rollerTicker" class="hidden bg-cineDark-900 border border-cineGold-500/50 rounded-2xl p-3 text-center text-cineGold-400 font-mono text-sm font-bold tracking-wide animate-pulse">
-          ROLLING THROUGH THE SHELVES...
+        <!-- Roulette Wheel Overlay Modal (Replaces shuffling ticker) -->
+        <div id="rouletteWheelModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden opacity-0 transition-opacity duration-300 flex flex-col items-center justify-center p-4">
+          <div class="flex flex-col items-center justify-center max-w-md w-full relative">
+            
+            <!-- Wheel Top Indicator Arrow -->
+            <div class="z-20 -mb-3.5 drop-shadow-lg flex justify-center">
+              <div class="w-0 h-0 border-l-[14px] border-l-transparent border-r-[14px] border-r-transparent border-t-[22px] border-t-amber-400"></div>
+            </div>
+
+            <!-- Outer Wheel Ring & Canvas -->
+            <div class="relative w-72 h-72 sm:w-80 sm:h-80 rounded-full p-2.5 bg-gradient-to-b from-amber-600 via-yellow-800 to-stone-900 border-4 border-amber-400/80 wheel-glow flex items-center justify-center">
+              <canvas id="rouletteCanvas" width="300" height="300" class="w-full h-full rounded-full transition-transform ease-out"></canvas>
+              
+              <!-- Center Brass Turret -->
+              <div class="absolute w-14 h-14 rounded-full bg-gradient-to-br from-amber-200 via-cineGold-500 to-amber-700 border-2 border-amber-300 shadow-xl flex items-center justify-center pointer-events-none">
+                <div class="w-6 h-6 rounded-full bg-stone-900 border border-amber-300 flex items-center justify-center">
+                  <div class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dynamic Live Roulette Status -->
+            <div id="wheelCurrentPickTitle" class="mt-5 text-sm sm:text-base font-bold text-slate-200 tracking-wide font-mono text-center truncate max-w-xs h-6">
+              Spinning the wheel...
+            </div>
+
+            <!-- "Always bet on Black" Quote -->
+            <div class="mt-3 flex flex-col items-center text-center">
+              <p class="text-base sm:text-lg font-black tracking-widest uppercase bg-gradient-to-r from-amber-200 via-cineGold-400 to-amber-500 bg-clip-text text-transparent drop-shadow-[0_2px_12px_rgba(245,158,11,0.5)]">
+                &ldquo;Always bet on Black&rdquo;
+              </p>
+              <span class="text-[10px] text-slate-500 tracking-wider uppercase font-semibold mt-0.5">Passenger 57 (1992)</span>
+            </div>
+
+          </div>
         </div>
 
       </section>
@@ -684,7 +721,9 @@
         watchedButtons: document.querySelectorAll('.filter-watched-btn'),
         btnResetFilters: document.getElementById('btnResetFilters'),
         btnSpinRoulette: document.getElementById('btnSpinRoulette'),
-        rollerTicker: document.getElementById('rollerTicker'),
+        rouletteWheelModal: document.getElementById('rouletteWheelModal'),
+        rouletteCanvas: document.getElementById('rouletteCanvas'),
+        wheelCurrentPickTitle: document.getElementById('wheelCurrentPickTitle'),
         movieCardContainer: document.getElementById('movieCardContainer'),
         cardTitle: document.getElementById('cardTitle'),
         cardDirector: document.getElementById('cardDirector'),
@@ -1219,6 +1258,83 @@
     }
 
     /* =====================================================================
+       ROULETTE WHEEL DRAWING & ROTATION ENGINE
+       ===================================================================== */
+    let wheelCanvas = null;
+    let wheelCtx = null;
+    const NUM_WHEEL_SLICES = 18;
+
+    function initWheelCanvas() {
+      if (!wheelCanvas) {
+        wheelCanvas = elements.rouletteCanvas || document.getElementById('rouletteCanvas');
+        if (wheelCanvas) {
+          wheelCtx = wheelCanvas.getContext('2d');
+          drawRouletteWheel(0);
+        }
+      }
+    }
+
+    function drawRouletteWheel(currentRotationAngle = 0) {
+      if (!wheelCtx || !wheelCanvas) return;
+      const width = wheelCanvas.width;
+      const height = wheelCanvas.height;
+      const center = width / 2;
+      const radius = center - 6;
+      const sliceAngle = (2 * Math.PI) / NUM_WHEEL_SLICES;
+
+      wheelCtx.clearRect(0, 0, width, height);
+
+      wheelCtx.save();
+      wheelCtx.translate(center, center);
+      wheelCtx.rotate(currentRotationAngle);
+
+      // Draw slices with alternating European Roulette pattern (Black, Red, Green 0)
+      for (let i = 0; i < NUM_WHEEL_SLICES; i++) {
+        const start = i * sliceAngle;
+        const end = start + sliceAngle;
+
+        wheelCtx.beginPath();
+        wheelCtx.moveTo(0, 0);
+        wheelCtx.arc(0, 0, radius, start, end);
+        wheelCtx.closePath();
+
+        if (i === 0) {
+          wheelCtx.fillStyle = '#059669'; // Emerald 0 pocket
+        } else if (i % 2 === 1) {
+          wheelCtx.fillStyle = '#111827'; // Black
+        } else {
+          wheelCtx.fillStyle = '#dc2626'; // Red
+        }
+        wheelCtx.fill();
+
+        // Rim border between pockets
+        wheelCtx.lineWidth = 1.5;
+        wheelCtx.strokeStyle = '#d97706';
+        wheelCtx.stroke();
+
+        // Pocket separator pins
+        wheelCtx.save();
+        wheelCtx.rotate(start);
+        wheelCtx.beginPath();
+        wheelCtx.arc(radius - 12, 0, 2.5, 0, Math.PI * 2);
+        wheelCtx.fillStyle = '#fef08a';
+        wheelCtx.fill();
+        wheelCtx.restore();
+      }
+
+      // Inner ring separator
+      wheelCtx.beginPath();
+      wheelCtx.arc(0, 0, radius * 0.45, 0, Math.PI * 2);
+      wheelCtx.fillStyle = '#1f2937';
+      wheelCtx.fill();
+      wheelCtx.lineWidth = 2;
+      wheelCtx.strokeStyle = '#f59e0b';
+      wheelCtx.stroke();
+
+      wheelCtx.restore();
+    }
+
+    /* =====================================================================
        SPIN ROULETTE ENGINE
        ===================================================================== */
     function spinRoulette() {
@@ -1228,52 +1344,79 @@
         return;
       }
 
+      initWheelCanvas();
+
       isRolling = true;
       elements.btnSpinRoulette.disabled = true;
-      elements.rollerTicker.classList.remove('hidden');
-      elements.movieCardContainer.classList.add('reel-blur');
 
-      let rollSpeed = 50;
-      let iterations = 0;
-      const maxIterations = 24 + Math.floor(Math.random() * 8);
+      // Show Wheel Modal
+      elements.rouletteWheelModal.classList.remove('hidden');
+      setTimeout(() => elements.rouletteWheelModal.classList.remove('opacity-0'), 10);
+      elements.wheelCurrentPickTitle.textContent = "Spinning the wheel...";
 
-      function step() {
-        const randIndex = Math.floor(Math.random() * filteredMovies.length);
-        const randomMovie = filteredMovies[randIndex];
-        
-        displayMovieOnCard(randomMovie);
-        elements.rollerTicker.textContent = `ROLLING: ${randomMovie.title.toUpperCase()} (${randomMovie.year || '?'})`;
-        AudioEngine.playTick();
+      // Pick random winner from filtered pool
+      const winnerIndex = Math.floor(Math.random() * filteredMovies.length);
+      const winner = filteredMovies[winnerIndex];
 
-        iterations++;
-        if (iterations < maxIterations) {
-          rollSpeed += 12; // Deceleration curve
-          setTimeout(step, rollSpeed);
+      // Physics spin setup
+      let currentAngle = 0;
+      let angularVelocity = 0.38 + Math.random() * 0.15; // Initial spin speed
+      const friction = 0.983; // Deceleration rate
+      let lastTickAngle = 0;
+
+      function animateSpin() {
+        currentAngle += angularVelocity;
+        angularVelocity *= friction;
+
+        drawRouletteWheel(currentAngle);
+
+        // Sound tick on passing pockets
+        if (Math.abs(currentAngle - lastTickAngle) >= (Math.PI * 2) / NUM_WHEEL_SLICES) {
+          AudioEngine.playTick();
+          lastTickAngle = currentAngle;
+
+          // Flash random candidate in text while spinning fast
+          if (angularVelocity > 0.08) {
+            const tempMovie = filteredMovies[Math.floor(Math.random() * filteredMovies.length)];
+            elements.wheelCurrentPickTitle.textContent = `${tempMovie.title.toUpperCase()} (${tempMovie.year || '?'})`;
+          }
+        }
+
+        // If stopped
+        if (angularVelocity < 0.003) {
+          elements.wheelCurrentPickTitle.textContent = `🎯 ${winner.title.toUpperCase()} (${winner.year || '?'})`;
+          AudioEngine.playWinner();
+
+          setTimeout(() => {
+            // Hide Wheel Modal
+            elements.rouletteWheelModal.classList.add('opacity-0');
+            setTimeout(() => {
+              elements.rouletteWheelModal.classList.add('hidden');
+              finalizePick(winner);
+            }, 300);
+          }, 800);
         } else {
-          finalizePick(randomMovie);
+          requestAnimationFrame(animateSpin);
         }
       }
 
-      step();
+      requestAnimationFrame(animateSpin);
     }
 
     function finalizePick(winner) {
       isRolling = false;
       elements.btnSpinRoulette.disabled = false;
-      elements.rollerTicker.classList.add('hidden');
-      elements.movieCardContainer.classList.remove('reel-blur');
 
       displayMovieOnCard(winner);
-      AudioEngine.playWinner();
 
       // Confetti burst
       try {
         if (window.confetti) {
           confetti({
-            particleCount: 50,
-            spread: 60,
-            origin: { y: 0.65 },
-            colors: ['#fbbf24', '#f59e0b', '#d97706', '#ffffff']
+            particleCount: 65,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#fbbf24', '#f59e0b', '#d97706', '#ef4444', '#ffffff']
           });
         }
       } catch (e) {}
