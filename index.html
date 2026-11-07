@@ -195,6 +195,14 @@
             <span id="filteredCountBadge" class="text-sm font-bold font-mono text-cineGold-400">15 / 15</span>
           </div>
 
+          <!-- Filter: Search -->
+          <div>
+            <div class="relative">
+              <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+              <input type="text" id="filterSearch" placeholder="Search title or director..." autocomplete="off" class="w-full bg-cineDark-950 border border-slate-700/80 rounded-xl pl-9 pr-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cineGold-500 transition shadow-inner">
+            </div>
+          </div>
+
           <!-- Filter: Decade -->
           <div>
             <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Decade</label>
@@ -238,8 +246,16 @@
           </div>
         </div>
 
+        <!-- Global Search -->
+        <div class="relative mt-auto pt-2">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none pt-2">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400"></i>
+          </div>
+          <input type="text" id="globalSearchInput" placeholder="Search title or director..." class="w-full bg-cineDark-950 border border-slate-700/80 rounded-xl pl-9 pr-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cineGold-500 transition placeholder-slate-500 shadow-inner">
+        </div>
+
         <!-- Toggle Catalog Drawer Button -->
-        <button id="btnToggleBrowse" class="mt-3 w-full py-2.5 rounded-xl bg-cineDark-850 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-300 transition flex items-center justify-center gap-2">
+        <button id="btnToggleBrowse" class="mt-2 w-full py-2.5 rounded-xl bg-cineDark-850 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-300 transition flex items-center justify-center gap-2">
           <i data-lucide="table" class="w-3.5 h-3.5 text-slate-400"></i>
           <span>Browse Filtered List</span>
         </button>
@@ -786,6 +802,7 @@
     let pickHistory = [];
     let isRolling = false;
     let activeFilters = {
+      searchQuery: '',
       decade: 'ALL',
       studio: 'ALL',
       genre: 'ALL',
@@ -798,6 +815,7 @@
 
     function initDOMElements() {
       elements = {
+        globalSearchInput: document.getElementById('globalSearchInput'),
         filteredCountBadge: document.getElementById('filteredCountBadge'),
         filterDecade: document.getElementById('filterDecade'),
         filterStudio: document.getElementById('filterStudio'),
@@ -1289,7 +1307,16 @@
     }
 
     function applyFilters() {
+      const searchQuery = (elements.globalSearchInput ? elements.globalSearchInput.value : '').toLowerCase().trim();
+
       filteredMovies = collectionData.filter(movie => {
+        // Global Search Filter
+        if (searchQuery) {
+          const matchesTitle = movie.title && movie.title.toLowerCase().includes(searchQuery);
+          const matchesDirector = movie.director && movie.director.toLowerCase().includes(searchQuery);
+          if (!matchesTitle && !matchesDirector) return false;
+        }
+
         // Decade Filter
         if (activeFilters.decade !== 'ALL') {
           const targetDecade = parseInt(activeFilters.decade, 10);
@@ -2320,6 +2347,8 @@
       on(elements.btnSpinRoulette, 'click', spinRoulette);
 
       // Filters
+      on(elements.globalSearchInput, 'input', applyFilters);
+
       on(elements.filterDecade, 'change', (e) => {
         activeFilters.decade = e.target.value;
         applyFilters();
@@ -2358,6 +2387,7 @@
         elements.filterStudio.value = 'ALL';
         elements.filterGenre.value = 'ALL';
         elements.filterCountry.value = 'ALL';
+        if (elements.globalSearchInput) elements.globalSearchInput.value = '';
         elements.watchedButtons.forEach(b => {
           if (b.dataset.watched === 'ALL') {
             b.classList.add('bg-cineGold-500', 'text-cineDark-950');
