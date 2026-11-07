@@ -1101,10 +1101,10 @@
       elements.btnPushToCloud.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Pushing...';
       elements.btnPushToCloud.disabled = true;
 
-      showToast('Uploading movies to Supabase in batches...', 'info');
+      showToast('Preparing and deduplicating movies for upload...', 'info');
 
       try {
-        const payload = collectionData.map(m => ({
+        const rawPayload = collectionData.map(m => ({
           id: String(m.id),
           title: m.title || '',
           director: m.director || '',
@@ -1116,6 +1116,13 @@
           poster: m.poster || '',
           overview: m.overview || ''
         }));
+
+        // DEDUPLICATE BY ID: Ensure no two items share the exact same ID in the upload payload
+        const uniqueMap = new Map();
+        rawPayload.forEach(item => {
+          uniqueMap.set(item.id, item);
+        });
+        const payload = Array.from(uniqueMap.values());
 
         const endpoint = `${url}/rest/v1/${table}?on_conflict=id`;
         
@@ -1150,7 +1157,9 @@
 
             if (!res.ok) {
               const errText = await res.text();
-              throw new Error(errText || `Server responded with ${res.status} on batch ${i}`);
+              // DIAGNOSTIC DUMP: Show the exact HTTP code and raw server response
+              alert(`DIAGNOSTIC CRASH REPORT (PUSH):\n\nStatus Code: ${res.status}\nBatch: ${i}\n\nServer Response:\n${errText}`);
+              throw new Error(`HTTP ${res.status}: ${errText || 'Unknown Error'}`);
             }
 
             success = true;
