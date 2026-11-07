@@ -847,6 +847,9 @@
       country: 'ALL',
       watched: 'ALL'
     };
+    
+    let pendingSeedMovies = [];
+    let pendingSeedFilename = '';
 
     // Cache DOM Elements
     let elements = {};
@@ -916,6 +919,15 @@
         formOverview: document.getElementById('formOverview'),
         formWatched: document.getElementById('formWatched'),
         btnDeleteMovie: document.getElementById('btnDeleteMovie'),
+        
+        // Seed Modal Elements
+        seedModal: document.getElementById('seedModal'),
+        seedPendingCount: document.getElementById('seedPendingCount'),
+        btnCloseSeedModal: document.getElementById('btnCloseSeedModal'),
+        btnCancelSeed: document.getElementById('btnCancelSeed'),
+        btnSeedReplace: document.getElementById('btnSeedReplace'),
+        btnSeedAppend: document.getElementById('btnSeedAppend'),
+
         btnOpenEnrichModal: document.getElementById('btnOpenEnrichModal'),
         enrichModal: document.getElementById('enrichModal'),
         btnCloseEnrichModal: document.getElementById('btnCloseEnrichModal'),
