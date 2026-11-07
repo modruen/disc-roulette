@@ -1045,6 +1045,10 @@
         return;
       }
 
+      const originalText = elements.btnPushToCloud.innerHTML;
+      elements.btnPushToCloud.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Pushing...';
+      elements.btnPushToCloud.disabled = true;
+
       showToast('Uploading movies to Supabase...', 'info');
 
       try {
@@ -1085,6 +1089,10 @@
         updateCloudBadge();
       } catch (err) {
         showToast(`Push failed: ${err.message}`, 'error');
+      } finally {
+        elements.btnPushToCloud.innerHTML = originalText;
+        elements.btnPushToCloud.disabled = false;
+        if (window.lucide) lucide.createIcons();
       }
     }
 
@@ -1097,6 +1105,10 @@
         showToast('Please enter Supabase URL and Anon Key first', 'error');
         return;
       }
+
+      const originalText = elements.btnPullFromCloud.innerHTML;
+      elements.btnPullFromCloud.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Pulling...';
+      elements.btnPullFromCloud.disabled = true;
 
       showToast('Fetching collection from cloud...', 'info');
 
@@ -1138,20 +1150,17 @@
         localStorage.setItem('cinepick_supabase_key', key);
         localStorage.setItem('cinepick_supabase_table', table);
 
-        elements.collectionSummary.textContent = `Cloud Synced (${collectionData.length} titles)`;
-        elements.totalTitleCount.textContent = collectionData.length;
-        if (elements.btnClearData) {
-          elements.btnClearData.classList.remove('hidden');
-          elements.btnClearData.classList.add('flex');
-        }
-
         updateCloudBadge();
         populateDynamicDropdowns();
         applyFilters();
         showToast(`Successfully pulled ${collectionData.length} movies from cloud!`, 'success');
-        window.closeCloudModal();
+        setTimeout(() => window.closeCloudModal(), 800);
       } catch (err) {
         showToast(`Pull failed: ${err.message}`, 'error');
+      } finally {
+        elements.btnPullFromCloud.innerHTML = originalText;
+        elements.btnPullFromCloud.disabled = false;
+        if (window.lucide) lucide.createIcons();
       }
     }
 
