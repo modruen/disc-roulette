@@ -409,6 +409,44 @@
 
         </div>
 
+      </section>
+    </div>
+
+    <!-- Browse Catalog Drawer (Restored) -->
+    <section id="browseCatalogSection" class="hidden bg-cineDark-900 border border-slate-800 rounded-2xl p-5 shadow-xl mt-2 mb-6">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+        <h3 class="font-bold text-base text-slate-100 flex items-center gap-2">
+          <i data-lucide="table" class="w-5 h-5 text-cineGold-400"></i> Browse Full Collection
+        </h3>
+        <button id="btnCloseBrowse" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="mt-4">
+        <input type="text" id="catalogSearchInput" placeholder="Filter table by title or director..." class="w-full sm:w-1/3 bg-cineDark-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cineGold-500 transition shadow-inner mb-4">
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left text-slate-300">
+            <thead class="text-xs text-slate-500 uppercase bg-cineDark-950/50">
+              <tr>
+                <th class="py-3 px-3 rounded-tl-lg">Title</th>
+                <th class="py-3 px-3">Year</th>
+                <th class="py-3 px-3">Director</th>
+                <th class="py-3 px-3">Studio</th>
+                <th class="py-3 px-3">Country</th>
+                <th class="py-3 px-3 text-center">Watched</th>
+                <th class="py-3 px-3 rounded-tr-lg text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="catalogTableBody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
   <!-- Seed Confirmation Modal -->
   <div id="seedModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm hidden opacity-0 transition-opacity flex items-center justify-center p-4">
     <div class="w-full max-w-md bg-cineDark-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
@@ -2225,8 +2263,7 @@
       collectionData = [...pendingSeedMovies];
       localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
 
-      elements.collectionSummary.textContent = `Seeded from ${pendingSeedFilename} (${collectionData.length} titles)`;
-      elements.totalTitleCount.textContent = collectionData.length;
+      // Removed references to deleted DOM UI elements to prevent crashes
       if (elements.btnClearData) {
         elements.btnClearData.classList.remove('hidden');
         elements.btnClearData.classList.add('flex');
@@ -2259,9 +2296,8 @@
       });
 
       localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
-      elements.collectionSummary.textContent = `Collection (${collectionData.length} titles)`;
-      elements.totalTitleCount.textContent = collectionData.length;
 
+      // Removed references to deleted DOM UI elements to prevent crashes
       populateDynamicDropdowns();
       applyFilters();
       closeSeedModal();
