@@ -18,6 +18,8 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  <!-- localForage for unlimited offline storage -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
 
   <script>
     tailwind.config = {
@@ -1117,8 +1119,8 @@
 
         const endpoint = `${url}/rest/v1/${table}?on_conflict=id`;
         
-        // Push in chunks of 200 to bypass payload limits
-        const CHUNK_SIZE = 200;
+        // Push in chunks of 900 for faster uploads
+        const CHUNK_SIZE = 900;
         for (let i = 0; i < payload.length; i += CHUNK_SIZE) {
           const chunk = payload.slice(i, i + CHUNK_SIZE);
           let success = false;
@@ -1197,7 +1199,7 @@
       try {
         let allData = [];
         let offset = 0;
-        const PAGE_SIZE = 200; // Reduced to 200 for gentler payloads
+        const PAGE_SIZE = 900; // Restored to 900 for fast downloading
         let keepFetching = true;
 
         // Loop and paginate using PostgREST Range headers
@@ -1229,7 +1231,9 @@
 
             if (!res.ok) {
               const errText = await res.text();
-              throw new Error(errText || `Server returned ${res.status}`);
+              // DIAGNOSTIC DUMP: Show the exact HTTP code and raw server response
+              alert(`DIAGNOSTIC CRASH REPORT:\n\nStatus Code: ${res.status}\nOffset: ${offset}\n\nServer Response:\n${errText}`);
+              throw new Error(`HTTP ${res.status}: ${errText || 'Unknown Error'}`);
             }
 
             data = await res.json();
@@ -1276,7 +1280,7 @@
         }));
 
         localCollectionData = [...collectionData];
-        persistCollection();
+        await persistCollection();
 
         showToast(`Successfully pulled ${collectionData.length} movies!`, 'success');
         localStorage.setItem('cinepick_supabase_url', url);
@@ -1371,9 +1375,18 @@
       applyFilters();
     }
 
-    function persistCollection() {
+    async function persistCollection() {
       if (currentMode === 'COLLECTION') {
-        localStorage.setItem('cinepick_clean_collection', JSON.stringify(localCollectionData));
+        try {
+          await localforage.setItem('cinepick_clean_collection', localCollectionData);
+        } catch (e) {
+          console.warn("localForage failed, trying localStorage:", e);
+          try {
+             localStorage.setItem('cinepick_clean_collection', JSON.stringify(localCollectionData));
+          } catch (e2) {
+             console.error("Local storage quota exceeded:", e2);
+          }
+        }
       }
     }
 
@@ -1507,45 +1520,135 @@
     }
 
     /* =====================================================================
-       CARD DISPLAY & TICKER LOGIC
+       COLLECTION & STORAGE INITIALIZATION
        ===================================================================== */
-    function displayMovieOnCard(movie) {
-      if (!movie) return;
-      currentSelectedMovie = movie;
-
-      elements.cardTitle.textContent = movie.title;
-      elements.cardDirector.textContent = movie.director || 'Unknown Director';
-      elements.cardStudio.textContent = (movie.studio || 'INDEPENDENT').toUpperCase();
-      elements.cardYearBadge.textContent = movie.year || 'N/A';
-      
-      const countryStr = movie.country || 'Unknown Country';
-      if (elements.cardCountryTopText) elements.cardCountryTopText.textContent = countryStr;
-      if (elements.detailYearText) elements.detailYearText.textContent = movie.year || 'N/A';
-      if (elements.detailCountryText) elements.detailCountryText.textContent = countryStr;
-      if (elements.detailStudioText) elements.detailStudioText.textContent = movie.studio || 'Independent';
-
-      elements.cardOverview.textContent = movie.overview || 'No synopsis recorded for this title.';
-
-      // Watched Status Badge
-      if (movie.watched) {
-        elements.cardWatchedBadge.classList.remove('hidden');
-        elements.btnToggleCardWatched.classList.add('text-emerald-400', 'border-emerald-500/40');
-      } else {
-        elements.cardWatchedBadge.classList.add('hidden');
-        elements.btnToggleCardWatched.classList.remove('text-emerald-400', 'border-emerald-500/40');
+    async function loadInitialCollection() {
+      try {
+        const saved = await localforage.getItem('cinepick_clean_collection');
+        if (saved) {
+          localCollectionData = saved;
+        } else {
+          // Fallback to migrate old localStorage if it exists
+          const legacy = localStorage.getItem('cinepick_clean_collection');
+          if (legacy) {
+            localCollectionData = JSON.parse(legacy);
+            await localforage.setItem('cinepick_clean_collection', localCollectionData);
+            localStorage.removeItem('cinepick_clean_collection');
+          } else {
+            localCollectionData = [...SAMPLE_MOVIES];
+          }
+        }
+      } catch (e) {
+        console.warn("Storage load error:", e);
+        localCollectionData = [...SAMPLE_MOVIES];
       }
 
-      // Genres
+      // Load History
+      const savedHist = localStorage.getItem('cinepick_pick_history');
+      if (savedHist) {
+        try { pickHistory = JSON.parse(savedHist); } catch (e) { pickHistory = []; }
+      }
+      updateHistoryUI();
+      updateCloudBadge();
+
+      // Check if auto-pull is possible on startup
+      const cloudUrl = localStorage.getItem('cinepick_supabase_url');
+      const cloudKey = localStorage.getItem('cinepick_supabase_key');
+      const hasSavedData = await localforage.getItem('cinepick_clean_collection');
+      
+      if (cloudUrl && cloudKey && !hasSavedData) {
+        handlePullFromCloud();
+      }
+
+      setAppMode('COLLECTION');
+    }
+
+    function setAppMode(mode) {
+      currentMode = mode;
+      const colOnly = document.querySelectorAll('.mode-collection-only');
+      const lbOnly = document.querySelectorAll('.mode-letterboxd-only');
+
+      if (mode === 'COLLECTION') {
+        elements.btnModeCollection.classList.add('bg-cineGold-500', 'text-cineDark-950');
+        elements.btnModeCollection.classList.remove('text-slate-400', 'hover:text-white');
+        elements.btnModeLetterboxd.classList.remove('bg-cineGold-500', 'text-cineDark-950');
+        elements.btnModeLetterboxd.classList.add('text-slate-400', 'hover:text-white');
+        
+        colOnly.forEach(el => {
+          el.classList.remove('hidden');
+          el.classList.add('flex');
+        });
+        lbOnly.forEach(el => {
+          el.classList.add('hidden');
+          el.classList.remove('flex');
+        });
+        
+        collectionData = localCollectionData;
+      } else {
+        elements.btnModeLetterboxd.classList.add('bg-cineGold-500', 'text-cineDark-950');
+        elements.btnModeLetterboxd.classList.remove('text-slate-400', 'hover:text-white');
+        elements.btnModeCollection.classList.remove('bg-cineGold-500', 'text-cineDark-950');
+        elements.btnModeCollection.classList.add('text-slate-400', 'hover:text-white');
+
+        colOnly.forEach(el => {
+          el.classList.add('hidden');
+          el.classList.remove('flex');
+        });
+        lbOnly.forEach(el => {
+          el.classList.remove('hidden');
+          el.classList.add('flex');
+        });
+
+        collectionData = letterboxdSessionData;
+      }
+      
+      populateDynamicDropdowns();
+      applyFilters();
+    }
+
+    function displayMovieOnCard(movie) {
+      if (!movie) {
+        displayEmptyCard();
+        return;
+      }
+
+      currentSelectedMovie = movie;
+      elements.cardTitle.textContent = movie.title || 'Unknown Title';
+      elements.cardDirector.textContent = movie.director || 'Unknown Director';
+      elements.cardStudio.textContent = movie.studio || 'Independent';
+      elements.cardYearBadge.textContent = movie.year || 'N/A';
+      
+      if (elements.cardCountryTopText) elements.cardCountryTopText.textContent = movie.country || 'Unknown';
+      if (elements.detailYearText) elements.detailYearText.textContent = movie.year || 'N/A';
+      if (elements.detailCountryText) elements.detailCountryText.textContent = movie.country || 'Unknown';
+      if (elements.detailStudioText) elements.detailStudioText.textContent = movie.studio || 'Independent';
+
+      elements.cardOverview.textContent = movie.overview || 'No synopsis available for this title.';
+
+      if (movie.watched) {
+        elements.cardWatchedBadge.classList.remove('hidden');
+        elements.btnToggleCardWatched.classList.add('text-emerald-400');
+        elements.btnToggleCardWatched.classList.remove('text-slate-300');
+      } else {
+        elements.cardWatchedBadge.classList.add('hidden');
+        elements.btnToggleCardWatched.classList.remove('text-emerald-400');
+        elements.btnToggleCardWatched.classList.add('text-slate-300');
+      }
+
       elements.cardGenres.innerHTML = '';
       if (movie.genres) {
-        movie.genres.split(/[,/]/).forEach(g => {
-          const clean = g.trim();
-          if (clean) {
-            elements.cardGenres.innerHTML += `<span class="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[11px] text-slate-300">${clean}</span>`;
-          }
+        const genreList = movie.genres.split(/[,/]/).map(g => g.trim()).filter(g => g);
+        genreList.forEach(g => {
+          const span = document.createElement('span');
+          span.className = 'px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[11px] text-slate-300';
+          span.textContent = g;
+          elements.cardGenres.appendChild(span);
         });
       } else {
-        elements.cardGenres.innerHTML = `<span class="text-xs text-slate-500 italic">None recorded</span>`;
+        const span = document.createElement('span');
+        span.className = 'px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[11px] text-slate-500';
+        span.textContent = 'Uncategorized';
+        elements.cardGenres.appendChild(span);
       }
 
       // Poster
@@ -1965,24 +2068,25 @@
         letterboxdSessionData = letterboxdSessionData.filter(m => m.id !== id);
         collectionData = letterboxdSessionData;
       }
-
-      showToast(`Removed "${movie.title}" from collection.`, 'info');
-      closeMovieModal();
+      
       populateDynamicDropdowns();
       applyFilters();
     }
 
+    async function persistCollection() {
+      if (currentMode === 'COLLECTION') {
+        try {
+          await localforage.setItem('cinepick_clean_collection', localCollectionData);
+        } catch (err) {
+          console.error("Local storage full or restricted:", err);
+        }
+      }
+    }
+
     /* =====================================================================
-       TMDB AUTO-ENRICHMENT SERVICE
+       TMDB AUTO-ENRICHMENT
        ===================================================================== */
     function openEnrichModal() {
-      elements.tmdbApiKeyInput.value = localStorage.getItem('cinepick_tmdb_key') || '';
-      elements.enrichCollectionStatus.textContent = `${collectionData.length} titles`;
-      
-      const missing = collectionData.filter(m => !m.poster || !m.genres || m.studio === 'Independent' || !m.year);
-      elements.enrichMissingCount.textContent = `${missing.length} titles`;
-      elements.enrichProgressContainer.classList.add('hidden');
-
       elements.enrichModal.classList.remove('hidden');
       setTimeout(() => elements.enrichModal.classList.remove('opacity-0'), 10);
     }
@@ -2354,7 +2458,8 @@
       if (!pendingSeedMovies || pendingSeedMovies.length === 0) return;
 
       collectionData = [...pendingSeedMovies];
-      localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+      localCollectionData = [...collectionData];
+      persistCollection();
 
       // Removed references to deleted DOM UI elements to prevent crashes
       if (elements.btnClearData) {
@@ -2373,7 +2478,7 @@
       }
     }
 
-    function applySeedAppend() {
+    async function applySeedAppend() {
       if (!pendingSeedMovies || pendingSeedMovies.length === 0) return;
 
       let addedCount = 0;
@@ -2388,7 +2493,8 @@
         }
       });
 
-      localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+      localCollectionData = [...collectionData];
+      persistCollection();
 
       // Removed references to deleted DOM UI elements to prevent crashes
       populateDynamicDropdowns();
@@ -2458,7 +2564,8 @@
 
     function handleClearCollection() {
       if (currentMode === 'COLLECTION') {
-        localStorage.removeItem('cinepick_clean_collection');
+        localforage.removeItem('cinepick_clean_collection');
+        localStorage.removeItem('cinepick_clean_collection'); // Clean legacy
         localCollectionData = [...SAMPLE_MOVIES];
         collectionData = localCollectionData;
         showToast("Reset to sample starter collection.", "info");
@@ -2642,10 +2749,10 @@
     /* =====================================================================
        APP BOOTSTRAP
        ===================================================================== */
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', async () => {
       initDOMElements();
       setupEventListeners();
-      loadInitialCollection();
+      await loadInitialCollection();
       if (window.lucide) lucide.createIcons();
     });
   </script>
