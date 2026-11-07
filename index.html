@@ -1135,7 +1135,13 @@
 
           if (!res.ok) {
             const errText = await res.text();
+            if (res.status === 429) throw new Error("Rate limit hit. Please wait a minute and try again.");
             throw new Error(errText || `Server responded with ${res.status} on batch ${i}`);
+          }
+
+          // Throttle: Pause for 300ms between batches to prevent triggering Supabase burst quotas
+          if (i + CHUNK_SIZE < payload.length) {
+            await new Promise(resolve => setTimeout(resolve, 300));
           }
         }
 
@@ -1172,7 +1178,7 @@
       try {
         let allData = [];
         let offset = 0;
-        const PAGE_SIZE = 900; // Kept safely under the 1000-row clamp limit
+        const PAGE_SIZE = 500; // Reduced to 500 for gentler payloads
         let keepFetching = true;
 
         // Loop and paginate using PostgREST Range headers
@@ -1191,6 +1197,7 @@
 
           if (!res.ok) {
             const errText = await res.text();
+            if (res.status === 429) throw new Error("Rate limit hit. Please wait a minute and try again.");
             throw new Error(errText || `Server returned ${res.status}`);
           }
 
@@ -1204,6 +1211,11 @@
             if (data.length < PAGE_SIZE) {
               keepFetching = false;
             }
+          }
+
+          // Throttle: Pause for 300ms between batches to prevent triggering Supabase burst quotas
+          if (keepFetching) {
+            await new Promise(resolve => setTimeout(resolve, 300));
           }
         }
 
