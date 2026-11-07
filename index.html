@@ -1172,16 +1172,20 @@
       try {
         let allData = [];
         let offset = 0;
-        const PAGE_SIZE = 1000;
+        const PAGE_SIZE = 900; // Kept safely under the 1000-row clamp limit
         let keepFetching = true;
 
-        // Loop and paginate to bypass the 1000 row API limit
+        // Loop and paginate using PostgREST Range headers
         while (keepFetching) {
-          const endpoint = `${url}/rest/v1/${table}?select=*&offset=${offset}&limit=${PAGE_SIZE}`;
+          elements.btnPullFromCloud.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Pulling (${offset}+)...`;
+          const endpoint = `${url}/rest/v1/${table}?select=*`;
+          
           const res = await fetch(endpoint, {
             headers: {
               'apikey': key,
-              'Authorization': `Bearer ${key}`
+              'Authorization': `Bearer ${key}`,
+              'Range-Unit': 'items',
+              'Range': `${offset}-${offset + PAGE_SIZE - 1}`
             }
           });
 
