@@ -135,7 +135,7 @@
   <!-- Main Container -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col gap-6 w-full">
     
-    <!-- Top CSV Import & Collection Bar -->
+    <!-- Top CSV & Letterboxd Collection Bar -->
     <section class="bg-cineDark-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
       <div class="flex items-center gap-3 w-full md:w-auto">
         <div class="w-10 h-10 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-400 shrink-0">
@@ -148,6 +148,12 @@
       </div>
 
       <div class="flex items-center gap-2 flex-wrap w-full md:w-auto justify-end">
+        <!-- Letterboxd URL Importer Button -->
+        <button id="btnOpenLetterboxdModal" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition">
+          <i data-lucide="link-2" class="w-3.5 h-3.5"></i>
+          <span>Import Letterboxd List</span>
+        </button>
+
         <label for="csvFileInput" class="cursor-pointer flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cineGold-500/10 hover:bg-cineGold-500/20 text-cineGold-400 border border-cineGold-500/30 text-xs font-semibold transition">
           <i data-lucide="file-up" class="w-3.5 h-3.5"></i>
           <span>Import CSV</span>
@@ -426,6 +432,53 @@
     </section>
 
   </main>
+
+  <!-- Letterboxd URL Importer Modal -->
+  <div id="letterboxdModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-cineDark-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <i data-lucide="link-2" class="w-5 h-5 text-emerald-400"></i>
+          <h3 class="font-bold text-base text-slate-100">Import Letterboxd List</h3>
+        </div>
+        <button id="btnCloseLetterboxdModal" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-300 leading-relaxed">
+        Paste the public URL to your Letterboxd list or physical media shelf. Disc Roulette will extract the titles, query TMDb with verified release years, and populate your collection.
+      </p>
+
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+          Public Letterboxd List URL
+        </label>
+        <input type="url" id="letterboxdUrlInput" placeholder="https://letterboxd.com/username/list/my-blurays/" class="w-full bg-cineDark-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono">
+      </div>
+
+      <!-- Scrape & Sync Progress -->
+      <div id="letterboxdProgressContainer" class="hidden bg-cineDark-950 border border-slate-800 rounded-xl p-3 space-y-2">
+        <div class="flex justify-between text-xs">
+          <span class="text-slate-400" id="letterboxdStatusLabel">Reading list contents...</span>
+          <span id="letterboxdProgressCount" class="font-mono text-emerald-400">0%</span>
+        </div>
+        <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+          <div id="letterboxdProgressBar" class="bg-emerald-500 h-2 rounded-full transition-all duration-200" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+        <span class="text-[11px] text-slate-500">Requires public list visibility.</span>
+        <div class="flex items-center gap-2">
+          <button type="button" id="btnCancelLetterboxd" class="px-4 py-2 rounded-xl bg-cineDark-850 hover:bg-slate-800 text-slate-300 text-xs font-semibold transition">Cancel</button>
+          <button type="button" id="btnStartLetterboxdImport" class="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-cineDark-950 text-xs font-bold transition flex items-center gap-1.5">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i> Fetch & Build Collection
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- History Drawer Modal -->
   <div id="historyDrawer" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden opacity-0 transition-opacity flex justify-end">
@@ -823,6 +876,16 @@
         btnDisconnectCloud: document.getElementById('btnDisconnectCloud'),
         btnPushToCloud: document.getElementById('btnPushToCloud'),
         btnPullFromCloud: document.getElementById('btnPullFromCloud'),
+        btnOpenLetterboxdModal: document.getElementById('btnOpenLetterboxdModal'),
+        letterboxdModal: document.getElementById('letterboxdModal'),
+        btnCloseLetterboxdModal: document.getElementById('btnCloseLetterboxdModal'),
+        btnCancelLetterboxd: document.getElementById('btnCancelLetterboxd'),
+        btnStartLetterboxdImport: document.getElementById('btnStartLetterboxdImport'),
+        letterboxdUrlInput: document.getElementById('letterboxdUrlInput'),
+        letterboxdProgressContainer: document.getElementById('letterboxdProgressContainer'),
+        letterboxdProgressBar: document.getElementById('letterboxdProgressBar'),
+        letterboxdProgressCount: document.getElementById('letterboxdProgressCount'),
+        letterboxdStatusLabel: document.getElementById('letterboxdStatusLabel'),
       };
     }
 
@@ -1749,7 +1812,6 @@
           if (res.ok) {
             const data = await res.json();
             if (data.results && data.results.length > 0) {
-              // Pick best match: match year exactly if available, else pick highest popularity
               let top = data.results[0];
               if (movie.year && data.results.length > 1) {
                 const yearMatch = data.results.find(r => r.release_date && r.release_date.startsWith(String(movie.year)));
@@ -1795,7 +1857,6 @@
         elements.enrichProgressBar.style.width = `${pct}%`;
         elements.enrichProgressText.textContent = `${completed} / ${targets.length} enriched`;
 
-        // Gentle pause for rate limits
         await new Promise(r => setTimeout(r, 120));
       }
 
@@ -1805,6 +1866,190 @@
       populateDynamicDropdowns();
       applyFilters();
       if (currentSelectedMovie) displayMovieOnCard(currentSelectedMovie);
+    }
+
+    /* =====================================================================
+       DIRECT LETTERBOXD LIST URL IMPORTER
+       ===================================================================== */
+    function openLetterboxdModal() {
+      elements.letterboxdProgressContainer.classList.add('hidden');
+      elements.letterboxdModal.classList.remove('hidden');
+      setTimeout(() => elements.letterboxdModal.classList.remove('opacity-0'), 10);
+    }
+
+    function closeLetterboxdModal() {
+      elements.letterboxdModal.classList.add('opacity-0');
+      setTimeout(() => elements.letterboxdModal.classList.add('hidden'), 200);
+    }
+
+    async function handleLetterboxdListImport() {
+      const rawUrl = (elements.letterboxdUrlInput.value || '').trim();
+      if (!rawUrl) {
+        showToast('Please enter a valid Letterboxd list URL.', 'error');
+        return;
+      }
+
+      let cleanUrl = rawUrl.replace(/\/+$/, '');
+      if (!cleanUrl.startsWith('http')) cleanUrl = 'https://' + cleanUrl;
+
+      elements.letterboxdProgressContainer.classList.remove('hidden');
+      elements.btnStartLetterboxdImport.disabled = true;
+      elements.letterboxdStatusLabel.textContent = 'Fetching Letterboxd page...';
+      elements.letterboxdProgressBar.style.width = '15%';
+      elements.letterboxdProgressCount.textContent = '15%';
+
+      try {
+        // Fetch HTML via open CORS proxy
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(cleanUrl)}`;
+        const res = await fetch(proxyUrl);
+        if (!res.ok) throw new Error('Could not reach Letterboxd via proxy.');
+        
+        const json = await res.json();
+        const html = json.contents;
+        if (!html) throw new Error('Empty response from list URL.');
+
+        elements.letterboxdStatusLabel.textContent = 'Parsing movie list...';
+        elements.letterboxdProgressBar.style.width = '35%';
+        elements.letterboxdProgressCount.textContent = '35%';
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        // Look for poster containers: li.poster-container div.film-poster or div[data-target-link]
+        const posterEls = doc.querySelectorAll('.film-poster, .poster-container, li.grid-item');
+        const candidateTitles = [];
+
+        posterEls.forEach(el => {
+          const filmDiv = el.matches('.film-poster') ? el : el.querySelector('.film-poster');
+          let title = '';
+          let year = null;
+
+          if (filmDiv) {
+            // Letterboxd poster attributes: alt text or data-film-slug
+            const img = filmDiv.querySelector('img');
+            if (img && img.alt) {
+              title = img.alt.trim();
+            } else if (filmDiv.getAttribute('data-film-slug')) {
+              title = filmDiv.getAttribute('data-film-slug').replace(/-/g, ' ');
+            }
+          }
+
+          // Fallback to text inside <h3> or <a> if present
+          if (!title) {
+            const heading = el.querySelector('h2, h3, a.headline');
+            if (heading) title = heading.textContent.trim();
+          }
+
+          // Search for release year in parent metadata if rendered
+          const metadataSpan = el.querySelector('.metadata, .date');
+          if (metadataSpan) {
+            const yrMatch = metadataSpan.textContent.match(/\b(19\d{2}|20\d{2})\b/);
+            if (yrMatch) year = parseInt(yrMatch[0], 10);
+          }
+
+          if (title && !candidateTitles.some(c => c.title.toLowerCase() === title.toLowerCase())) {
+            candidateTitles.push({ title, year });
+          }
+        });
+
+        if (candidateTitles.length === 0) {
+          throw new Error('No movies found on that page. Ensure the list is public and the link is correct.');
+        }
+
+        elements.letterboxdStatusLabel.textContent = `Found ${candidateTitles.length} movies! Matching details...`;
+        elements.letterboxdProgressBar.style.width = '50%';
+        elements.letterboxdProgressCount.textContent = '50%';
+
+        const apiKey = localStorage.getItem('cinepick_tmdb_key') || '';
+        const authHeaders = apiKey.length > 50 ? { 'Authorization': `Bearer ${apiKey}` } : {};
+        const queryParam = apiKey && apiKey.length <= 50 ? `&api_key=${apiKey}` : '';
+
+        const newMovies = [];
+        let completed = 0;
+
+        for (let cand of candidateTitles) {
+          let movieObj = {
+            id: 'mov_' + Math.random().toString(36).substr(2, 9),
+            title: cand.title,
+            director: 'Unknown Director',
+            studio: 'Independent',
+            year: cand.year,
+            genres: '',
+            country: 'United States',
+            watched: false,
+            poster: '',
+            overview: ''
+          };
+
+          if (apiKey) {
+            try {
+              let searchUrl = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(cand.title)}${queryParam}&include_adult=false`;
+              if (cand.year) searchUrl += `&primary_release_year=${cand.year}&year=${cand.year}`;
+
+              const tRes = await fetch(searchUrl, { headers: authHeaders });
+              if (tRes.ok) {
+                const tData = await tRes.json();
+                if (tData.results && tData.results.length > 0) {
+                  let top = tData.results[0];
+                  if (cand.year && tData.results.length > 1) {
+                    const yrMatch = tData.results.find(r => r.release_date && r.release_date.startsWith(String(cand.year)));
+                    if (yrMatch) top = yrMatch;
+                  }
+
+                  const detailUrl = `https://api.themoviedb.org/3/movie/${top.id}?append_to_response=credits${queryParam}`;
+                  const dRes = await fetch(detailUrl, { headers: authHeaders });
+                  if (dRes.ok) {
+                    const d = await dRes.json();
+                    movieObj.title = d.title || movieObj.title;
+                    if (d.poster_path) movieObj.poster = `https://image.tmdb.org/t/p/w500${d.poster_path}`;
+                    if (d.overview) movieObj.overview = d.overview;
+                    if (d.genres) movieObj.genres = d.genres.map(g => g.name).join(', ');
+                    if (d.release_date && !movieObj.year) movieObj.year = parseInt(d.release_date.split('-')[0], 10);
+                    if (d.production_companies && d.production_companies.length > 0) movieObj.studio = d.production_companies[0].name;
+                    if (d.production_countries && d.production_countries.length > 0) movieObj.country = d.production_countries.map(c => c.name).join(' / ');
+                    if (d.credits && d.credits.crew) {
+                      const dirs = d.credits.crew.filter(c => c.job === 'Director').map(c => c.name);
+                      if (dirs.length > 0) movieObj.director = dirs.join(', ');
+                    }
+                  }
+                }
+              }
+            } catch (e) {}
+          }
+
+          newMovies.push(movieObj);
+          completed++;
+          const pct = 50 + Math.round((completed / candidateTitles.length) * 50);
+          elements.letterboxdProgressBar.style.width = `${pct}%`;
+          elements.letterboxdProgressCount.textContent = `${pct}%`;
+          await new Promise(r => setTimeout(r, 60));
+        }
+
+        collectionData = newMovies;
+        localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+
+        elements.collectionSummary.textContent = `Letterboxd List (${collectionData.length} titles)`;
+        elements.totalTitleCount.textContent = collectionData.length;
+        if (elements.btnClearData) {
+          elements.btnClearData.classList.remove('hidden');
+          elements.btnClearData.classList.add('flex');
+        }
+
+        populateDynamicDropdowns();
+        applyFilters();
+        showToast(`Successfully imported ${collectionData.length} movies from Letterboxd!`, 'success');
+        closeLetterboxdModal();
+
+        // Prompt to push to Supabase if connected
+        if (localStorage.getItem('cinepick_supabase_url')) {
+          handlePushToCloud();
+        }
+
+      } catch (err) {
+        showToast(err.message || 'Failed to import Letterboxd list.', 'error');
+      } finally {
+        elements.btnStartLetterboxdImport.disabled = false;
+      }
     }
 
     /* =====================================================================
@@ -1840,7 +2085,6 @@
       const watchedIdx = headers.findIndex(h => h.includes('watched') || h.includes('viewed') || h.includes('seen'));
       const posterIdx = headers.findIndex(h => h.includes('poster') || h.includes('image'));
       const overviewIdx = headers.findIndex(h => h.includes('overview') || h.includes('synopsis') || h.includes('plot'));
-      const letterboxdUrlIdx = headers.findIndex(h => h === 'url' || h.includes('letterboxd'));
 
       if (titleIdx === -1) {
         showToast("Could not find a 'Title' or 'Name' column in your CSV.", "error");
@@ -2099,6 +2343,12 @@
       on(elements.btnCloseEnrichModal, 'click', closeEnrichModal);
       on(elements.btnCancelEnrich, 'click', closeEnrichModal);
       on(elements.btnStartEnrich, 'click', startAutoEnrichment);
+
+      // Letterboxd Importer Modal
+      on(elements.btnOpenLetterboxdModal, 'click', openLetterboxdModal);
+      on(elements.btnCloseLetterboxdModal, 'click', closeLetterboxdModal);
+      on(elements.btnCancelLetterboxd, 'click', closeLetterboxdModal);
+      on(elements.btnStartLetterboxdImport, 'click', handleLetterboxdListImport);
 
       // Cloud modal handlers
       on(elements.btnOpenCloudModal, 'click', window.openCloudModal);
