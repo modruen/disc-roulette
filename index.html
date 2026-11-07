@@ -1300,97 +1300,6 @@
     }
 
     /* =====================================================================
-       COLLECTION & STORAGE INITIALIZATION
-       ===================================================================== */
-    function loadInitialCollection() {
-      const saved = localStorage.getItem('cinepick_clean_collection');
-      if (saved) {
-        try {
-          localCollectionData = JSON.parse(saved);
-        } catch (e) {
-          localCollectionData = [...SAMPLE_MOVIES];
-        }
-      } else {
-        localCollectionData = [...SAMPLE_MOVIES];
-      }
-
-      // Load History
-      const savedHist = localStorage.getItem('cinepick_pick_history');
-      if (savedHist) {
-        try { pickHistory = JSON.parse(savedHist); } catch (e) { pickHistory = []; }
-      }
-      updateHistoryUI();
-      updateCloudBadge();
-
-      // Check if auto-pull is possible on startup
-      const cloudUrl = localStorage.getItem('cinepick_supabase_url');
-      const cloudKey = localStorage.getItem('cinepick_supabase_key');
-      if (cloudUrl && cloudKey && !saved) {
-        handlePullFromCloud();
-      }
-
-      setAppMode('COLLECTION');
-    }
-
-    function setAppMode(mode) {
-      currentMode = mode;
-      const colOnly = document.querySelectorAll('.mode-collection-only');
-      const lbOnly = document.querySelectorAll('.mode-letterboxd-only');
-
-      if (mode === 'COLLECTION') {
-        elements.btnModeCollection.classList.add('bg-cineGold-500', 'text-cineDark-950');
-        elements.btnModeCollection.classList.remove('text-slate-400', 'hover:text-white');
-        elements.btnModeLetterboxd.classList.remove('bg-cineGold-500', 'text-cineDark-950');
-        elements.btnModeLetterboxd.classList.add('text-slate-400', 'hover:text-white');
-        
-        colOnly.forEach(el => {
-          el.classList.remove('hidden');
-          el.classList.add('flex');
-        });
-        lbOnly.forEach(el => {
-          el.classList.add('hidden');
-          el.classList.remove('flex');
-        });
-        
-        collectionData = localCollectionData;
-      } else {
-        elements.btnModeLetterboxd.classList.add('bg-cineGold-500', 'text-cineDark-950');
-        elements.btnModeLetterboxd.classList.remove('text-slate-400', 'hover:text-white');
-        elements.btnModeCollection.classList.remove('bg-cineGold-500', 'text-cineDark-950');
-        elements.btnModeCollection.classList.add('text-slate-400', 'hover:text-white');
-
-        colOnly.forEach(el => {
-          el.classList.add('hidden');
-          el.classList.remove('flex');
-        });
-        lbOnly.forEach(el => {
-          el.classList.remove('hidden');
-          el.classList.add('flex');
-        });
-
-        collectionData = letterboxdSessionData;
-      }
-      
-      populateDynamicDropdowns();
-      applyFilters();
-    }
-
-    async function persistCollection() {
-      if (currentMode === 'COLLECTION') {
-        try {
-          await localforage.setItem('cinepick_clean_collection', localCollectionData);
-        } catch (e) {
-          console.warn("localForage failed, trying localStorage:", e);
-          try {
-             localStorage.setItem('cinepick_clean_collection', JSON.stringify(localCollectionData));
-          } catch (e2) {
-             console.error("Local storage quota exceeded:", e2);
-          }
-        }
-      }
-    }
-
-    /* =====================================================================
        DYNAMIC FILTERS & DECADES
        ===================================================================== */
     function populateDynamicDropdowns() {
@@ -1684,6 +1593,75 @@
     }
 
     /* =====================================================================
+       UI HELPERS & HISTORY
+       ===================================================================== */
+    function updateHistoryUI() {
+      if (!elements.historyListContainer) return;
+      elements.historyListContainer.innerHTML = '';
+      
+      if (pickHistory.length === 0) {
+        elements.historyListContainer.innerHTML = '<p class="text-xs text-slate-500 text-center">No history yet. Spin the wheel!</p>';
+        if (elements.historyCountBadge) elements.historyCountBadge.classList.add('hidden');
+        if (elements.historyTotalText) elements.historyTotalText.textContent = '0 picks recorded';
+        return;
+      }
+
+      if (elements.historyCountBadge) {
+        elements.historyCountBadge.textContent = pickHistory.length;
+        elements.historyCountBadge.classList.remove('hidden');
+      }
+      if (elements.historyTotalText) {
+        elements.historyTotalText.textContent = `${pickHistory.length} pick${pickHistory.length === 1 ? '' : 's'} recorded`;
+      }
+
+      pickHistory.forEach(pick => {
+        const date = new Date(pick.pickedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        elements.historyListContainer.innerHTML += `
+          <div class="bg-cineDark-950 border border-slate-800 rounded-xl p-3 flex items-center gap-3">
+            ${pick.poster ? `<img src="${pick.poster}" class="w-10 h-14 object-cover rounded-md">` : `<div class="w-10 h-14 bg-slate-800 rounded-md flex items-center justify-center"><i data-lucide="film" class="w-4 h-4 text-slate-500"></i></div>`}
+            <div class="flex-1 min-w-0">
+              <h4 class="text-sm font-bold text-slate-200 truncate">${pick.title}</h4>
+              <p class="text-[10px] text-slate-400">${date}</p>
+            </div>
+            <button onclick="window.previewMovieById('${pick.id}')" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-cineGold-400 transition">
+              <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+        `;
+      });
+      if (window.lucide) lucide.createIcons();
+    }
+
+    window.previewMovieById = function(id) {
+      const m = collectionData.find(x => x.id === id);
+      if (m) {
+        displayMovieOnCard(m);
+        if (elements.browseCatalogSection) elements.browseCatalogSection.classList.add('hidden');
+        if (elements.historyDrawer) {
+          elements.historyDrawer.classList.add('opacity-0');
+          setTimeout(() => elements.historyDrawer.classList.add('hidden'), 200);
+        }
+      }
+    };
+
+    window.toggleWatchedFromCatalog = function(id) {
+      const m = collectionData.find(x => x.id === id);
+      if (m) {
+        m.watched = !m.watched;
+        persistCollection();
+        if (currentMode === 'COLLECTION') syncMovieChangeToCloud(m);
+        renderCatalogTable();
+        if (currentSelectedMovie && currentSelectedMovie.id === id) displayMovieOnCard(m);
+        showToast(`Marked "${m.title}" as ${m.watched ? 'Watched' : 'Unwatched'}.`);
+      }
+    };
+
+    window.editMovieById = function(id) {
+      const m = collectionData.find(x => x.id === id);
+      if (m) openEditMovieModal(m);
+    };
+
+    /* =====================================================================
        ROULETTE WHEEL DRAWING & ROTATION ENGINE
        ===================================================================== */
     let wheelCanvas = null;
@@ -1905,68 +1883,9 @@
       if (window.lucide) lucide.createIcons();
     }
 
-    window.previewMovieById = function(id) {
-      const found = collectionData.find(m => m.id === id);
-      if (found) {
-        displayMovieOnCard(found);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-    };
-
-    window.toggleWatchedFromCatalog = function(id) {
-      const found = collectionData.find(m => m.id === id);
-      if (found) {
-        found.watched = !found.watched;
-        persistCollection();
-        if (currentMode === 'COLLECTION') syncMovieChangeToCloud(found);
-        applyFilters();
-        if (currentSelectedMovie && currentSelectedMovie.id === id) {
-          displayMovieOnCard(found);
-        }
-      }
-    };
-
-    window.editMovieById = function(id) {
-      const found = collectionData.find(m => m.id === id);
-      if (found) openEditMovieModal(found);
-    };
-
-    /* =====================================================================
-       HISTORY DRAWER
-       ===================================================================== */
-    function updateHistoryUI() {
-      if (!elements.historyListContainer) return;
-
-      if (pickHistory.length === 0) {
-        elements.historyListContainer.innerHTML = `
-          <div class="h-64 flex flex-col items-center justify-center text-slate-600 text-center gap-2">
-            <i data-lucide="film" class="w-8 h-8"></i>
-            <p class="text-xs">No movies picked yet.</p>
-          </div>
-        `;
-        elements.historyCountBadge.classList.add('hidden');
-        elements.historyTotalText.textContent = '0 picks recorded';
-        if (window.lucide) lucide.createIcons();
-        return;
-      }
-
-      elements.historyCountBadge.textContent = pickHistory.length;
-      elements.historyCountBadge.classList.remove('hidden');
-      elements.historyTotalText.textContent = `${pickHistory.length} picks recorded`;
-
-      elements.historyListContainer.innerHTML = pickHistory.map(item => `
-        <div class="p-3 rounded-xl bg-cineDark-950 border border-slate-800 flex items-center justify-between gap-3">
-          <div class="min-w-0">
-            <h4 class="font-bold text-slate-200 text-xs truncate">${item.title}</h4>
-            <p class="text-[10px] text-slate-400">${item.year || 'N/A'} &bull; ${item.director || 'Unknown'}</p>
-          </div>
-          <button onclick="window.previewMovieById('${item.id}')" class="px-2.5 py-1 rounded-lg bg-cineDark-850 hover:bg-slate-800 text-[10px] text-cineGold-400 border border-slate-700 shrink-0 font-semibold">
-            View
-          </button>
-        </div>
-      `).join('');
-
-      if (window.lucide) lucide.createIcons();
+    function generateMovieId(title, year) {
+      const cleanTitle = (title || 'unknown').toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 30);
+      return `mov_${cleanTitle}_${year || '0000'}`;
     }
 
     /* =====================================================================
@@ -2017,7 +1936,7 @@
       const isNew = !id;
 
       const movieObj = {
-        id: id || 'mov_' + Math.random().toString(36).substr(2, 9),
+        id: id || generateMovieId(elements.formTitle.value.trim(), elements.formYear.value),
         title: elements.formTitle.value.trim(),
         director: elements.formDirector.value.trim() || 'Unknown Director',
         studio: elements.formStudio.value.trim() || 'Independent',
@@ -2289,7 +2208,7 @@
 
         for (let cand of candidateTitles) {
           let movieObj = {
-            id: 'mov_' + Math.random().toString(36).substr(2, 9),
+            id: generateMovieId(cand.title, cand.year),
             title: cand.title,
             director: 'Unknown Director',
             studio: 'Independent',
@@ -2421,7 +2340,7 @@
         }
 
         parsed.push({
-          id: 'mov_' + Math.random().toString(36).substr(2, 9),
+          id: generateMovieId(title, year),
           title,
           director,
           studio,
