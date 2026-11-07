@@ -1117,31 +1117,50 @@
 
         const endpoint = `${url}/rest/v1/${table}?on_conflict=id`;
         
-        // Push in chunks of 500 to bypass payload limits
-        const CHUNK_SIZE = 500;
+        // Push in chunks of 200 to bypass payload limits
+        const CHUNK_SIZE = 200;
         for (let i = 0; i < payload.length; i += CHUNK_SIZE) {
           const chunk = payload.slice(i, i + CHUNK_SIZE);
-          
-          const res = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': key,
-              'Authorization': `Bearer ${key}`,
-              'Prefer': 'resolution=merge-duplicates'
-            },
-            body: JSON.stringify(chunk)
-          });
+          let success = false;
+          let retries = 0;
 
-          if (!res.ok) {
-            const errText = await res.text();
-            if (res.status === 429) throw new Error("Rate limit hit. Please wait a minute and try again.");
-            throw new Error(errText || `Server responded with ${res.status} on batch ${i}`);
+          while (!success && retries < 4) {
+            elements.btnPushToCloud.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Pushing (${i}+)...`;
+            
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': key,
+                'Authorization': `Bearer ${key}`,
+                'Prefer': 'resolution=merge-duplicates'
+              },
+              body: JSON.stringify(chunk)
+            });
+
+            if (res.status === 429) {
+              retries++;
+              elements.btnPushToCloud.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Pausing (Rate Limit)...`;
+              // Exponential backoff: Wait 2s, 4s, 6s...
+              await new Promise(resolve => setTimeout(resolve, 2000 * retries));
+              continue; 
+            }
+
+            if (!res.ok) {
+              const errText = await res.text();
+              throw new Error(errText || `Server responded with ${res.status} on batch ${i}`);
+            }
+
+            success = true;
           }
 
-          // Throttle: Pause for 300ms between batches to prevent triggering Supabase burst quotas
+          if (!success) {
+            throw new Error("Max retries reached due to strict server rate limits.");
+          }
+
+          // Normal throttle: Pause for 500ms between successful batches
           if (i + CHUNK_SIZE < payload.length) {
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
         }
 
@@ -1178,30 +1197,49 @@
       try {
         let allData = [];
         let offset = 0;
-        const PAGE_SIZE = 500; // Reduced to 500 for gentler payloads
+        const PAGE_SIZE = 200; // Reduced to 200 for gentler payloads
         let keepFetching = true;
 
         // Loop and paginate using PostgREST Range headers
         while (keepFetching) {
-          elements.btnPullFromCloud.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Pulling (${offset}+)...`;
           const endpoint = `${url}/rest/v1/${table}?select=*`;
+          let success = false;
+          let retries = 0;
+          let data = null;
           
-          const res = await fetch(endpoint, {
-            headers: {
-              'apikey': key,
-              'Authorization': `Bearer ${key}`,
-              'Range-Unit': 'items',
-              'Range': `${offset}-${offset + PAGE_SIZE - 1}`
-            }
-          });
+          while (!success && retries < 4) {
+            elements.btnPullFromCloud.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Pulling (${offset}+)...`;
+            
+            const res = await fetch(endpoint, {
+              headers: {
+                'apikey': key,
+                'Authorization': `Bearer ${key}`,
+                'Range-Unit': 'items',
+                'Range': `${offset}-${offset + PAGE_SIZE - 1}`
+              }
+            });
 
-          if (!res.ok) {
-            const errText = await res.text();
-            if (res.status === 429) throw new Error("Rate limit hit. Please wait a minute and try again.");
-            throw new Error(errText || `Server returned ${res.status}`);
+            if (res.status === 429) {
+              retries++;
+              elements.btnPullFromCloud.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Pausing (Rate Limit)...`;
+              // Exponential backoff: Wait 2s, 4s, 6s...
+              await new Promise(resolve => setTimeout(resolve, 2000 * retries));
+              continue;
+            }
+
+            if (!res.ok) {
+              const errText = await res.text();
+              throw new Error(errText || `Server returned ${res.status}`);
+            }
+
+            data = await res.json();
+            success = true;
           }
 
-          const data = await res.json();
+          if (!success) {
+             throw new Error("Max retries reached due to strict server rate limits.");
+          }
+
           if (!Array.isArray(data) || data.length === 0) {
             keepFetching = false;
           } else {
@@ -1213,9 +1251,9 @@
             }
           }
 
-          // Throttle: Pause for 300ms between batches to prevent triggering Supabase burst quotas
+          // Normal throttle: Pause for 500ms between successful batches
           if (keepFetching) {
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
         }
 
