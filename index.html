@@ -4,6 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Disc Roulette | Physical Media Movie Picker</title>
+
+  <!-- iOS PWA Mobile Configuration -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Disc Roulette">
+  <meta name="theme-color" content="#070a12">
+  <link rel="apple-touch-icon" href="https://placehold.co/180x180/070a12/f59e0b?text=Roulette">
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
@@ -94,79 +102,52 @@
           <p class="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Physical Media Selector</p>
         </div>
       </div>
-
-      <!-- Action Nav Buttons -->
-      <div class="flex items-center gap-2 sm:gap-3">
-        <!-- Cloud Sync Button -->
-        <button id="btnOpenCloudModal" onclick="window.openCloudModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cineDark-850 hover:bg-slate-800 border border-slate-700/80 text-xs font-semibold text-slate-200 transition shadow-sm">
-          <i data-lucide="cloud" class="w-3.5 h-3.5 text-cyan-400"></i>
-          <span class="hidden md:inline">Cloud Sync</span>
-          <span id="cloudStatusBadge" class="w-2 h-2 rounded-full bg-slate-500"></span>
-        </button>
-
-        <!-- TMDb Auto Enrich Button -->
-        <button id="btnOpenEnrichModal" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-700/60 text-xs font-semibold text-indigo-200 transition shadow-sm">
-          <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i>
-          <span class="hidden sm:inline">Auto-Enrich Data</span>
-        </button>
-
-        <!-- Add Title Button -->
-        <button id="btnAddTitle" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cineDark-850 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition">
-          <i data-lucide="plus" class="w-3.5 h-3.5 text-cineGold-400"></i>
-          <span class="hidden sm:inline">Add Title</span>
-        </button>
-
-        <!-- Pick History Button -->
-        <button id="btnOpenHistory" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cineDark-850 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition relative">
-          <i data-lucide="history" class="w-3.5 h-3.5 text-slate-400"></i>
-          <span class="hidden sm:inline">History</span>
-          <span id="historyCountBadge" class="hidden px-1.5 py-0.2 rounded-full bg-cineGold-500 text-cineDark-950 text-[10px] font-bold">0</span>
-        </button>
-
-        <!-- Titles Loaded Counter Badge -->
-        <div class="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-400 font-mono">
-          <i data-lucide="film" class="w-3.5 h-3.5 text-slate-500"></i>
-          <span id="totalTitleCount">0</span> Titles
-        </div>
-      </div>
     </div>
   </header>
 
   <!-- Main Container -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col gap-6 w-full">
     
-    <!-- Top CSV & Letterboxd Collection Bar -->
-    <section class="bg-cineDark-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-      <div class="flex items-center gap-3 w-full md:w-auto">
-        <div class="w-10 h-10 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-400 shrink-0">
-          <i data-lucide="database" class="w-5 h-5 text-cineGold-400"></i>
-        </div>
-        <div>
-          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300">Your Movie Collection</h2>
-          <p id="collectionSummary" class="text-xs text-slate-400">Using embedded sample list (15 titles)</p>
-        </div>
+    <!-- Top Settings Section -->
+    <section class="bg-cineDark-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col gap-3">
+      <div class="flex items-center gap-2 border-b border-slate-800/80 pb-2">
+        <i data-lucide="settings" class="w-4 h-4 text-cineGold-400"></i>
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300">Settings</h2>
       </div>
 
-      <div class="flex items-center gap-2 flex-wrap w-full md:w-auto justify-end">
-        <!-- Letterboxd URL Importer Button -->
-        <button id="btnOpenLetterboxdModal" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition">
-          <i data-lucide="link-2" class="w-3.5 h-3.5"></i>
-          <span>Import Letterboxd List</span>
+      <div class="flex flex-wrap items-center gap-2" id="settingsActionContainer">
+        <!-- Collection Mode Options -->
+        <button id="btnOpenCloudModal" onclick="window.openCloudModal()" class="mode-collection-only flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cineDark-850 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition shadow-sm">
+          <i data-lucide="cloud" class="w-4 h-4 text-cyan-400"></i>
+          <span>Cloud Sync</span>
+          <span id="cloudStatusBadge" class="w-2 h-2 rounded-full bg-slate-500"></span>
         </button>
 
-        <label for="csvFileInput" class="cursor-pointer flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cineGold-500/10 hover:bg-cineGold-500/20 text-cineGold-400 border border-cineGold-500/30 text-xs font-semibold transition">
-          <i data-lucide="file-up" class="w-3.5 h-3.5"></i>
+        <button id="btnOpenEnrichModal" class="mode-collection-only flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-700/60 text-xs font-semibold text-indigo-200 transition shadow-sm">
+          <i data-lucide="sparkles" class="w-4 h-4 text-indigo-400"></i>
+          <span>Auto-Enrich Data</span>
+        </button>
+        
+        <label id="labelImportCsv" for="csvFileInput" class="mode-collection-only cursor-pointer flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cineGold-500/10 hover:bg-cineGold-500/20 text-cineGold-400 border border-cineGold-500/30 text-xs font-semibold transition">
+          <i data-lucide="file-up" class="w-4 h-4"></i>
           <span>Import CSV</span>
         </label>
         <input type="file" id="csvFileInput" accept=".csv" class="hidden">
 
-        <button id="btnExportCsv" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cineDark-850 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold transition">
-          <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
+        <!-- Letterboxd Mode Options -->
+        <button id="btnOpenLetterboxdModal" class="mode-letterboxd-only hidden items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition">
+          <i data-lucide="link-2" class="w-4 h-4"></i>
+          <span>Import Letterboxd List</span>
+        </button>
+
+        <!-- Global Options (Always visible) -->
+        <button id="btnExportCsv" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cineDark-850 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold transition ml-auto">
+          <i data-lucide="file-down" class="w-4 h-4"></i>
           <span>Export CSV</span>
         </button>
 
-        <button id="btnClearData" class="hidden items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold transition">
-          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        <button id="btnClearData" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold transition">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
           <span>Clear Data</span>
         </button>
       </div>
@@ -177,7 +158,27 @@
       
       <!-- Filter Controls Panel (4 Columns) -->
       <aside class="lg:col-span-4 bg-cineDark-900 border border-slate-800/90 rounded-2xl p-5 shadow-xl flex flex-col justify-between gap-4 h-full">
+        
         <div class="flex flex-col gap-4">
+          <!-- Data Source Toggle -->
+          <div class="bg-cineDark-950 p-1 rounded-xl border border-slate-800 grid grid-cols-2 gap-1 mb-2">
+            <button id="btnModeLetterboxd" class="py-1.5 rounded-lg text-xs font-semibold transition text-slate-400 hover:text-white">Letterboxd (Session)</button>
+            <button id="btnModeCollection" class="py-1.5 rounded-lg text-xs font-semibold transition bg-cineGold-500 text-cineDark-950">Movie Collection</button>
+          </div>
+
+          <!-- Actions -->
+          <div class="grid grid-cols-2 gap-2 mb-2">
+            <button id="btnAddTitle" class="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-cineDark-850 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition">
+              <i data-lucide="plus" class="w-3.5 h-3.5 text-cineGold-400"></i>
+              <span>Add Title</span>
+            </button>
+            <button id="btnOpenHistory" class="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-cineDark-850 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition relative">
+              <i data-lucide="history" class="w-3.5 h-3.5 text-slate-400"></i>
+              <span>History</span>
+              <span id="historyCountBadge" class="hidden absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full bg-cineGold-500 text-cineDark-950 text-[9px] font-bold">0</span>
+            </button>
+          </div>
+
           <div class="flex items-center justify-between pb-3 border-b border-slate-800">
             <div class="flex items-center gap-2">
               <i data-lucide="sliders-horizontal" class="w-4 h-4 text-cineGold-400"></i>
@@ -340,7 +341,7 @@
             </div>
 
             <!-- VIEW B: In-Card Roulette Wheel Display (Active when spinning) -->
-            <div id="movieCardWheelView" class="hidden opacity-0 flex-col items-center justify-center text-center w-full py-2 transition-opacity duration-300">
+            <div id="movieCardWheelView" class="hidden opacity-0 absolute inset-0 w-full h-full flex flex-col items-center justify-center text-center py-2 transition-opacity duration-300">
               
               <!-- Wheel Top Indicator Arrow -->
               <div class="z-20 -mb-2.5 drop-shadow-lg flex justify-center">
@@ -392,46 +393,46 @@
 
         </div>
 
-      </section>
+  <!-- Seed Confirmation Modal -->
+  <div id="seedModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm hidden opacity-0 transition-opacity flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-cineDark-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <i data-lucide="database-zap" class="w-5 h-5 text-cineGold-400"></i>
+          <h3 class="font-bold text-base text-slate-100">Seed Collection</h3>
+        </div>
+        <button id="btnCloseSeedModal" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
 
+      <p id="seedModalDescription" class="text-xs text-slate-300 leading-relaxed">
+        Found <span id="seedPendingCount" class="font-bold text-cineGold-400">0</span> valid movies in your CSV file. How would you like to load them into Disc Roulette?
+      </p>
+
+      <div class="grid grid-cols-1 gap-2.5 pt-1">
+        <button type="button" id="btnSeedReplace" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-cineGold-600 hover:from-amber-400 hover:to-cineGold-500 text-cineDark-950 font-bold text-xs transition text-left flex items-start gap-3 shadow-lg shadow-amber-500/10">
+          <i data-lucide="refresh-cw" class="w-4 h-4 mt-0.5 shrink-0"></i>
+          <div>
+            <div class="uppercase tracking-wide">Replace &amp; Seed Master Library</div>
+            <p class="text-[11px] font-normal opacity-90">Clears sample starter movies and sets this CSV as your master library.</p>
+          </div>
+        </button>
+
+        <button type="button" id="btnSeedAppend" class="w-full py-3 px-4 rounded-xl bg-cineDark-850 hover:bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs transition text-left flex items-start gap-3">
+          <i data-lucide="copy-plus" class="w-4 h-4 mt-0.5 text-emerald-400 shrink-0"></i>
+          <div>
+            <div>Append / Merge New Titles</div>
+            <p class="text-[11px] font-normal text-slate-400">Keeps existing titles and appends new ones, skipping duplicates.</p>
+          </div>
+        </button>
+      </div>
+
+      <div class="flex items-center justify-end pt-3 border-t border-slate-800">
+        <button type="button" id="btnCancelSeed" class="px-4 py-2 rounded-xl bg-cineDark-850 hover:bg-slate-800 text-slate-400 text-xs font-semibold transition">Cancel</button>
+      </div>
     </div>
-
-    <!-- Filtered Catalog Drawer / Table (Collapsible) -->
-    <section id="browseCatalogSection" class="hidden bg-cineDark-900 border border-slate-800 rounded-2xl p-6 shadow-xl mt-4">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-        <div>
-          <h3 class="font-bold text-base text-slate-100 flex items-center gap-2">
-            <i data-lucide="list" class="w-4 h-4 text-cineGold-400"></i> Filtered Collection Catalog
-          </h3>
-          <p class="text-xs text-slate-400">Browse and inspect movies currently matching your filters.</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <input type="text" id="catalogSearchInput" placeholder="Quick search title/director..." class="bg-cineDark-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cineGold-500">
-          <button id="btnCloseBrowse" class="text-xs text-slate-400 hover:text-white px-2 py-1">Close</button>
-        </div>
-      </div>
-
-      <div class="overflow-x-auto max-h-96">
-        <table class="w-full text-left text-xs border-collapse">
-          <thead class="sticky top-0 bg-cineDark-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
-            <tr>
-              <th class="py-2.5 px-3">Title</th>
-              <th class="py-2.5 px-3">Year</th>
-              <th class="py-2.5 px-3">Director</th>
-              <th class="py-2.5 px-3">Studio</th>
-              <th class="py-2.5 px-3">Country</th>
-              <th class="py-2.5 px-3 text-center">Status</th>
-              <th class="py-2.5 px-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="catalogTableBody" class="divide-y divide-slate-800/60 font-medium">
-            <!-- Dynamic Rows -->
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-  </main>
+  </div>
 
   <!-- Letterboxd URL Importer Modal -->
   <div id="letterboxdModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity flex items-center justify-center p-4">
@@ -776,6 +777,10 @@
        STATE MANAGEMENT
        ===================================================================== */
     let collectionData = [];
+    let localCollectionData = [];
+    let letterboxdSessionData = [];
+    let currentMode = 'COLLECTION'; // 'COLLECTION' or 'LETTERBOXD'
+    
     let filteredMovies = [];
     let currentSelectedMovie = null;
     let pickHistory = [];
@@ -793,8 +798,6 @@
 
     function initDOMElements() {
       elements = {
-        totalTitleCount: document.getElementById('totalTitleCount'),
-        collectionSummary: document.getElementById('collectionSummary'),
         filteredCountBadge: document.getElementById('filteredCountBadge'),
         filterDecade: document.getElementById('filterDecade'),
         filterStudio: document.getElementById('filterStudio'),
@@ -824,6 +827,7 @@
         cardWatchedBadge: document.getElementById('cardWatchedBadge'),
         btnToggleCardWatched: document.getElementById('btnToggleCardWatched'),
         btnEditCardMovie: document.getElementById('btnEditCardMovie'),
+        labelImportCsv: document.getElementById('labelImportCsv'),
         csvFileInput: document.getElementById('csvFileInput'),
         btnExportCsv: document.getElementById('btnExportCsv'),
         btnClearData: document.getElementById('btnClearData'),
@@ -886,6 +890,8 @@
         letterboxdProgressBar: document.getElementById('letterboxdProgressBar'),
         letterboxdProgressCount: document.getElementById('letterboxdProgressCount'),
         letterboxdStatusLabel: document.getElementById('letterboxdStatusLabel'),
+        btnModeCollection: document.getElementById('btnModeCollection'),
+        btnModeLetterboxd: document.getElementById('btnModeLetterboxd'),
       };
     }
 
@@ -1138,18 +1144,12 @@
       const saved = localStorage.getItem('cinepick_clean_collection');
       if (saved) {
         try {
-          collectionData = JSON.parse(saved);
-          elements.collectionSummary.textContent = `Saved Local Collection (${collectionData.length} titles)`;
-          if (elements.btnClearData) {
-            elements.btnClearData.classList.remove('hidden');
-            elements.btnClearData.classList.add('flex');
-          }
+          localCollectionData = JSON.parse(saved);
         } catch (e) {
-          collectionData = [...SAMPLE_MOVIES];
+          localCollectionData = [...SAMPLE_MOVIES];
         }
       } else {
-        collectionData = [...SAMPLE_MOVIES];
-        elements.collectionSummary.textContent = `Sample Starter Collection (${collectionData.length} titles)`;
+        localCollectionData = [...SAMPLE_MOVIES];
       }
 
       // Load History
@@ -1167,9 +1167,56 @@
         handlePullFromCloud();
       }
 
-      elements.totalTitleCount.textContent = collectionData.length;
+      setAppMode('COLLECTION');
+    }
+
+    function setAppMode(mode) {
+      currentMode = mode;
+      const colOnly = document.querySelectorAll('.mode-collection-only');
+      const lbOnly = document.querySelectorAll('.mode-letterboxd-only');
+
+      if (mode === 'COLLECTION') {
+        elements.btnModeCollection.classList.add('bg-cineGold-500', 'text-cineDark-950');
+        elements.btnModeCollection.classList.remove('text-slate-400', 'hover:text-white');
+        elements.btnModeLetterboxd.classList.remove('bg-cineGold-500', 'text-cineDark-950');
+        elements.btnModeLetterboxd.classList.add('text-slate-400', 'hover:text-white');
+        
+        colOnly.forEach(el => {
+          el.classList.remove('hidden');
+          el.classList.add('flex');
+        });
+        lbOnly.forEach(el => {
+          el.classList.add('hidden');
+          el.classList.remove('flex');
+        });
+        
+        collectionData = localCollectionData;
+      } else {
+        elements.btnModeLetterboxd.classList.add('bg-cineGold-500', 'text-cineDark-950');
+        elements.btnModeLetterboxd.classList.remove('text-slate-400', 'hover:text-white');
+        elements.btnModeCollection.classList.remove('bg-cineGold-500', 'text-cineDark-950');
+        elements.btnModeCollection.classList.add('text-slate-400', 'hover:text-white');
+
+        colOnly.forEach(el => {
+          el.classList.add('hidden');
+          el.classList.remove('flex');
+        });
+        lbOnly.forEach(el => {
+          el.classList.remove('hidden');
+          el.classList.add('flex');
+        });
+
+        collectionData = letterboxdSessionData;
+      }
+      
       populateDynamicDropdowns();
       applyFilters();
+    }
+
+    function persistCollection() {
+      if (currentMode === 'COLLECTION') {
+        localStorage.setItem('cinepick_clean_collection', JSON.stringify(localCollectionData));
+      }
     }
 
     /* =====================================================================
@@ -1600,8 +1647,8 @@
       const found = collectionData.find(m => m.id === id);
       if (found) {
         found.watched = !found.watched;
-        localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
-        syncMovieChangeToCloud(found);
+        persistCollection();
+        if (currentMode === 'COLLECTION') syncMovieChangeToCloud(found);
         applyFilters();
         if (currentSelectedMovie && currentSelectedMovie.id === id) {
           displayMovieOnCard(found);
@@ -1723,8 +1770,8 @@
         }
       }
 
-      localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
-      syncMovieChangeToCloud(movieObj);
+      persistCollection();
+      if (currentMode === 'COLLECTION') syncMovieChangeToCloud(movieObj);
 
       populateDynamicDropdowns();
       applyFilters();
@@ -1734,10 +1781,6 @@
       }
 
       closeMovieModal();
-      if (elements.btnClearData) {
-        elements.btnClearData.classList.remove('hidden');
-        elements.btnClearData.classList.add('flex');
-      }
     }
 
     function handleDeleteMovie() {
@@ -1746,9 +1789,15 @@
       const movie = collectionData.find(m => m.id === id);
       if (!movie) return;
 
-      collectionData = collectionData.filter(m => m.id !== id);
-      localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
-      deleteMovieFromCloud(id);
+      if (currentMode === 'COLLECTION') {
+        localCollectionData = localCollectionData.filter(m => m.id !== id);
+        collectionData = localCollectionData;
+        persistCollection();
+        deleteMovieFromCloud(id);
+      } else {
+        letterboxdSessionData = letterboxdSessionData.filter(m => m.id !== id);
+        collectionData = letterboxdSessionData;
+      }
 
       showToast(`Removed "${movie.title}" from collection.`, 'info');
       closeMovieModal();
@@ -1860,7 +1909,7 @@
         await new Promise(r => setTimeout(r, 120));
       }
 
-      localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+      persistCollection();
       elements.btnStartEnrich.disabled = false;
       showToast(`Finished enriching ${completed} movies!`, 'success');
       populateDynamicDropdowns();
@@ -2025,26 +2074,11 @@
           await new Promise(r => setTimeout(r, 60));
         }
 
-        collectionData = newMovies;
-        localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+        letterboxdSessionData = newMovies;
+        setAppMode('LETTERBOXD');
 
-        elements.collectionSummary.textContent = `Letterboxd List (${collectionData.length} titles)`;
-        elements.totalTitleCount.textContent = collectionData.length;
-        if (elements.btnClearData) {
-          elements.btnClearData.classList.remove('hidden');
-          elements.btnClearData.classList.add('flex');
-        }
-
-        populateDynamicDropdowns();
-        applyFilters();
         showToast(`Successfully imported ${collectionData.length} movies from Letterboxd!`, 'success');
         closeLetterboxdModal();
-
-        // Prompt to push to Supabase if connected
-        if (localStorage.getItem('cinepick_supabase_url')) {
-          handlePushToCloud();
-        }
-
       } catch (err) {
         showToast(err.message || 'Failed to import Letterboxd list.', 'error');
       } finally {
@@ -2052,22 +2086,19 @@
       }
     }
 
-    /* =====================================================================
-       CSV IMPORT & EXPORT
-       ===================================================================== */
     function handleCsvImport(e) {
       const file = e.target.files[0];
       if (!file) return;
-
       const reader = new FileReader();
       reader.onload = function(evt) {
         const text = evt.target.result;
-        parseAndLoadCsv(text, file.name);
+        prepareCsvSeedData(text, file.name);
       };
       reader.readAsText(file);
+      e.target.value = ''; // Reset input
     }
 
-    function parseAndLoadCsv(csvText, filename = 'Imported File') {
+    function prepareCsvSeedData(csvText, filename = 'Imported File') {
       const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
       if (lines.length < 2) {
         showToast("CSV file is empty or missing headers.", "error");
@@ -2091,7 +2122,7 @@
         return;
       }
 
-      const imported = [];
+      const parsed = [];
       for (let i = 1; i < lines.length; i++) {
         const row = parseCsvLine(lines[i]);
         if (!row || row.length === 0 || !row[titleIdx]) continue;
@@ -2118,7 +2149,7 @@
           watched = (val === 'true' || val === 'yes' || val === '1' || val === 'watched' || val === 'y');
         }
 
-        imported.push({
+        parsed.push({
           id: 'mov_' + Math.random().toString(36).substr(2, 9),
           title,
           director,
@@ -2132,14 +2163,33 @@
         });
       }
 
-      if (imported.length === 0) {
+      if (parsed.length === 0) {
         showToast("No valid titles found in CSV.", "error");
         return;
       }
 
-      collectionData = imported;
+      pendingSeedMovies = parsed;
+      pendingSeedFilename = filename;
+
+      // Show Seed Option Modal
+      elements.seedPendingCount.textContent = `${parsed.length} titles`;
+      elements.seedModal.classList.remove('hidden');
+      setTimeout(() => elements.seedModal.classList.remove('opacity-0'), 10);
+    }
+
+    function closeSeedModal() {
+      elements.seedModal.classList.add('opacity-0');
+      setTimeout(() => elements.seedModal.classList.add('hidden'), 200);
+      pendingSeedMovies = [];
+    }
+
+    function applySeedReplace() {
+      if (!pendingSeedMovies || pendingSeedMovies.length === 0) return;
+
+      collectionData = [...pendingSeedMovies];
       localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
-      elements.collectionSummary.textContent = `${filename} (${collectionData.length} titles)`;
+
+      elements.collectionSummary.textContent = `Seeded from ${pendingSeedFilename} (${collectionData.length} titles)`;
       elements.totalTitleCount.textContent = collectionData.length;
       if (elements.btnClearData) {
         elements.btnClearData.classList.remove('hidden');
@@ -2148,7 +2198,42 @@
 
       populateDynamicDropdowns();
       applyFilters();
-      showToast(`Loaded ${collectionData.length} titles from ${filename}!`, 'success');
+      closeSeedModal();
+      showToast(`Successfully seeded library with ${collectionData.length} movies!`, 'success');
+
+      // If connected to Supabase, push immediately to establish master cloud copy
+      if (localStorage.getItem('cinepick_supabase_url') && localStorage.getItem('cinepick_supabase_key')) {
+        handlePushToCloud();
+      }
+    }
+
+    function applySeedAppend() {
+      if (!pendingSeedMovies || pendingSeedMovies.length === 0) return;
+
+      let addedCount = 0;
+      pendingSeedMovies.forEach(cand => {
+        const exists = collectionData.some(m => 
+          m.title.toLowerCase() === cand.title.toLowerCase() && 
+          (!cand.year || !m.year || m.year === cand.year)
+        );
+        if (!exists) {
+          collectionData.push(cand);
+          addedCount++;
+        }
+      });
+
+      localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
+      elements.collectionSummary.textContent = `Collection (${collectionData.length} titles)`;
+      elements.totalTitleCount.textContent = collectionData.length;
+
+      populateDynamicDropdowns();
+      applyFilters();
+      closeSeedModal();
+      showToast(`Added ${addedCount} new movies (skipped ${pendingSeedMovies.length - addedCount} duplicates)!`, 'success');
+
+      if (localStorage.getItem('cinepick_supabase_url') && localStorage.getItem('cinepick_supabase_key')) {
+        handlePushToCloud();
+      }
     }
 
     function parseCsvLine(line) {
@@ -2207,17 +2292,18 @@
     }
 
     function handleClearCollection() {
-      localStorage.removeItem('cinepick_clean_collection');
-      collectionData = [...SAMPLE_MOVIES];
-      elements.collectionSummary.textContent = `Sample Starter Collection (${collectionData.length} titles)`;
-      elements.totalTitleCount.textContent = collectionData.length;
-      if (elements.btnClearData) {
-        elements.btnClearData.classList.remove('flex');
-        elements.btnClearData.classList.add('hidden');
+      if (currentMode === 'COLLECTION') {
+        localStorage.removeItem('cinepick_clean_collection');
+        localCollectionData = [...SAMPLE_MOVIES];
+        collectionData = localCollectionData;
+        showToast("Reset to sample starter collection.", "info");
+      } else {
+        letterboxdSessionData = [];
+        collectionData = letterboxdSessionData;
+        showToast("Cleared Letterboxd session data.", "info");
       }
       populateDynamicDropdowns();
       applyFilters();
-      showToast("Reset to sample starter collection.", "info");
     }
 
     /* =====================================================================
@@ -2225,6 +2311,10 @@
        ===================================================================== */
     function setupEventListeners() {
       const on = (el, event, handler) => { if (el) el.addEventListener(event, handler); };
+
+      // App Mode Toggles
+      on(elements.btnModeCollection, 'click', () => setAppMode('COLLECTION'));
+      on(elements.btnModeLetterboxd, 'click', () => setAppMode('LETTERBOXD'));
 
       // Spin button
       on(elements.btnSpinRoulette, 'click', spinRoulette);
@@ -2285,8 +2375,8 @@
       on(elements.btnToggleCardWatched, 'click', () => {
         if (!currentSelectedMovie) return;
         currentSelectedMovie.watched = !currentSelectedMovie.watched;
-        localStorage.setItem('cinepick_clean_collection', JSON.stringify(collectionData));
-        syncMovieChangeToCloud(currentSelectedMovie);
+        persistCollection();
+        if (currentMode === 'COLLECTION') syncMovieChangeToCloud(currentSelectedMovie);
         displayMovieOnCard(currentSelectedMovie);
         applyFilters();
         showToast(`Marked "${currentSelectedMovie.title}" as ${currentSelectedMovie.watched ? 'Watched' : 'Unwatched'}.`);
@@ -2343,6 +2433,12 @@
       on(elements.btnCloseEnrichModal, 'click', closeEnrichModal);
       on(elements.btnCancelEnrich, 'click', closeEnrichModal);
       on(elements.btnStartEnrich, 'click', startAutoEnrichment);
+
+      // Seed Modal Handlers
+      on(elements.btnCloseSeedModal, 'click', closeSeedModal);
+      on(elements.btnCancelSeed, 'click', closeSeedModal);
+      on(elements.btnSeedReplace, 'click', applySeedReplace);
+      on(elements.btnSeedAppend, 'click', applySeedAppend);
 
       // Letterboxd Importer Modal
       on(elements.btnOpenLetterboxdModal, 'click', openLetterboxdModal);
